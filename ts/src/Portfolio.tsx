@@ -11,6 +11,7 @@ import SkillsSection from './sections/Skills.js';
 import ProjectsSection from './sections/Projects.js';
 import ExperienceSection from './sections/Experience.js';
 import ContactSection from './sections/Contact.js';
+import ChatSection from './sections/Chat.js';
 
 export const TAB_DEFS: (TabDef & { component: () => React.ReactElement })[] = [
   { key: '1', label: 'About', icon: '◉', color: '#58a6ff', component: AboutSection },
@@ -18,6 +19,7 @@ export const TAB_DEFS: (TabDef & { component: () => React.ReactElement })[] = [
   { key: '3', label: 'Projects', icon: '▣', color: '#da7756', component: ProjectsSection },
   { key: '4', label: 'Experience', icon: '◇', color: '#d29922', component: ExperienceSection },
   { key: '5', label: 'Contact', icon: '✉', color: '#bc8cff', component: ContactSection },
+  { key: '6', label: 'Chat', icon: '▪', color: '#666', component: ChatSection },
 ];
 
 export default function Portfolio() {
@@ -27,13 +29,20 @@ export default function Portfolio() {
 
   const handleLoadDone = useCallback(() => setLoading(false), []);
 
+  const isChat = TAB_DEFS[activeTab].label === 'Chat';
+
   useInput((input, key) => {
     if (loading) return;
+    // In chat mode, only Escape exits chat, arrow left/right switch tabs
+    if (isChat) {
+      if (key.escape) setActiveTab(0);
+      return;
+    }
     if (input === 'q') exit();
     else if (key.leftArrow || input === 'h') setActiveTab(prev => Math.max(0, prev - 1));
     else if (key.rightArrow || input === 'l') setActiveTab(prev => Math.min(TAB_DEFS.length - 1, prev + 1));
     else if (key.tab) setActiveTab(prev => (prev + 1) % TAB_DEFS.length);
-    else if (input >= '1' && input <= '5') setActiveTab(parseInt(input) - 1);
+    else if (input >= '1' && input <= '6') setActiveTab(parseInt(input) - 1);
   });
 
   if (loading) {

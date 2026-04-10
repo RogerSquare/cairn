@@ -16,6 +16,7 @@ const SECTION_HINTS: Record<string, string> = {
   Projects: '↑↓ browse  ←→ tabs',
   Experience: '↑↓ navigate  enter expand  ←→ tabs',
   Contact: '↑↓ select  enter copy  ←→ tabs',
+  Chat: 'type to chat  enter send  esc back',
 };
 
 export default function StatusBar({ section, sectionIdx, totalSections }: StatusBarProps) {
