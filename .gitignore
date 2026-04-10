@@ -16,3 +16,5 @@ add-firewall-rule.bat
 # OS files
 .DS_Store
 Thumbs.db
+ts/node_modules/
+ts/dist/
