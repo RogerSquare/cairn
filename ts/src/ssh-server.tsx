@@ -3,7 +3,8 @@
 
 import React from 'react';
 import { render } from 'ink';
-import { Server, type Connection, type Session } from 'ssh2';
+import ssh2 from 'ssh2';
+const { Server } = ssh2;
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
