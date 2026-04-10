@@ -200,7 +200,7 @@ function layout(title: string, nav: string, content: string): string {
       const traceColor = '#88888818';
       const padColor = '#88888812';
       const viaColor = '#88888825';
-      const MIN_BRANCH = 30;
+      const MIN_BRANCH = 45;
       const FPS = 40;
       const interval = 1000 / FPS;
       // PCB traces only move in 0, 45, 90, 135, 180, 225, 270, 315 degrees
@@ -272,7 +272,7 @@ function layout(title: string, nav: string, content: string): string {
           ctx.fill();
         }
 
-        var rate = counter.v <= MIN_BRANCH ? 0.8 : 0.45;
+        var rate = counter.v <= MIN_BRANCH ? 0.85 : 0.5;
 
         // Main trace continues with a turn
         var newRad = pickTurn(rad);
@@ -281,7 +281,7 @@ function layout(title: string, nav: string, content: string): string {
         }
 
         // Branch: T-junction (perpendicular split) with lower probability
-        if (random() < (counter.v <= MIN_BRANCH ? 0.15 : 0.06)) {
+        if (random() < (counter.v <= MIN_BRANCH ? 0.2 : 0.08)) {
           var branchRad = nearestAngle(rad + (random() < 0.5 ? PI/2 : -PI/2));
           steps.push(function() { trace(nx, ny, branchRad, {v: counter.v}); });
         }
@@ -323,13 +323,17 @@ function layout(title: string, nav: string, content: string): string {
         steps = [
           function() { trace(mid() * W, -5, r90, {v:0}); },
           function() { trace(mid() * W, -5, r90, {v:0}); },
+          function() { trace(mid() * W, -5, r90, {v:0}); },
+          function() { trace(mid() * W, H + 5, -r90, {v:0}); },
           function() { trace(mid() * W, H + 5, -r90, {v:0}); },
           function() { trace(mid() * W, H + 5, -r90, {v:0}); },
           function() { trace(-5, mid() * H, 0, {v:0}); },
+          function() { trace(-5, mid() * H, 0, {v:0}); },
+          function() { trace(W + 5, mid() * H, PI, {v:0}); },
           function() { trace(W + 5, mid() * H, PI, {v:0}); },
         ];
 
-        if (W < 500) steps = steps.slice(0, 3);
+        if (W < 500) steps = steps.slice(0, 4);
 
         rafId = requestAnimationFrame(frame);
       }
