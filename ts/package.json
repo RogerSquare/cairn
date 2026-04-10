@@ -6,17 +6,20 @@
   "scripts": {
     "dev": "tsx src/app.tsx",
     "serve": "tsx src/ssh-server.tsx",
+    "web": "tsx src/web-server.ts",
     "build": "tsc"
   },
   "keywords": [],
   "author": "Roger Ochoa",
   "license": "MIT",
   "dependencies": {
+    "express": "^5.2.1",
     "ink": "^7.0.0",
     "react": "^19.2.5",
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/react": "^19.2.14",
     "@types/ssh2": "^1.15.5",
     "tsx": "^4.21.0",
