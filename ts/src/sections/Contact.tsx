@@ -2,7 +2,7 @@
 // Pattern from: terminal-ui-showcase/src/demos/select-menu.tsx, toast-notifications.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import { contact } from '../data.js';
 
 interface ContactItem {
@@ -22,13 +22,17 @@ const ITEMS: ContactItem[] = [
 export default function ContactSection() {
   const [cursor, setCursor] = useState(0);
   const [toast, setToast] = useState('');
+  const { stdout } = useStdout();
 
   useInput((input, key) => {
     if (key.upArrow || input === 'k') setCursor(prev => Math.max(0, prev - 1));
     else if (key.downArrow || input === 'j') setCursor(prev => Math.min(ITEMS.length - 1, prev + 1));
     else if (key.return) {
       const item = ITEMS[cursor];
-      // In a real terminal, clipboard access is limited. Show the value as "copied" feedback.
+      // Use OSC 52 escape sequence to set the system clipboard
+      // This works in most modern terminals (Windows Terminal, iTerm2, kitty, etc.)
+      const encoded = Buffer.from(item.value).toString('base64');
+      stdout?.write(`\x1b]52;c;${encoded}\x07`);
       setToast(`Copied: ${item.value}`);
     }
   });
