@@ -67,15 +67,30 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
 
         // Create writable stream that pipes to the SSH channel
 
-        const stdout = Object.assign(new PassThrough(), {
-          columns: ptyInfo.cols,
-          rows: ptyInfo.rows,
-          isTTY: true,
-          cursorTo() { return true; },
-          clearLine() { return true; },
-          moveCursor() { return true; },
-          getWindowSize() { return [this.columns, this.rows]; },
-        }) as any;
+        const stdout = new PassThrough() as any;
+        stdout.columns = ptyInfo.cols;
+        stdout.rows = ptyInfo.rows;
+        stdout.isTTY = true;
+        stdout.cursorTo = (x: number, y?: number) => {
+          if (y !== undefined) stdout.write(`\x1b[${y + 1};${x + 1}H`);
+          else stdout.write(`\x1b[${x + 1}G`);
+          return true;
+        };
+        stdout.clearLine = (dir: number) => {
+          if (dir === -1) stdout.write('\x1b[1K');
+          else if (dir === 1) stdout.write('\x1b[0K');
+          else stdout.write('\x1b[2K');
+          return true;
+        };
+        stdout.moveCursor = (dx: number, dy: number) => {
+          if (dx > 0) stdout.write(`\x1b[${dx}C`);
+          else if (dx < 0) stdout.write(`\x1b[${-dx}D`);
+          if (dy > 0) stdout.write(`\x1b[${dy}B`);
+          else if (dy < 0) stdout.write(`\x1b[${-dy}A`);
+          return true;
+        };
+        stdout.clearScreenDown = () => { stdout.write('\x1b[J'); return true; };
+        stdout.getWindowSize = () => [stdout.columns, stdout.rows];
 
         // Pipe stdout to the SSH channel
         stdout.on('data', (chunk: Buffer) => {
