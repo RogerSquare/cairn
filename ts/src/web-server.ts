@@ -7,6 +7,10 @@ import { contact, about, skills, projects, experience } from './data.js';
 const app = express();
 const PORT = parseInt(process.env.WEB_PORT || '3000', 10);
 const ADMIN_PASS = process.env.ADMIN_PASS || 'changeme';
+const IMMICH_URL = process.env.IMMICH_URL || 'https://photos.r-that.com';
+const IMMICH_SHARE_KEY = process.env.IMMICH_SHARE_KEY || '';
+const IMMICH_ALBUM_ID = process.env.IMMICH_ALBUM_ID || '';
+const PHOTO_CACHE_TTL = 10 * 60 * 1000; // 10 min
 
 app.use(express.urlencoded({ extended: true }));
 
@@ -149,6 +153,13 @@ function layout(title: string, nav: string, content: string): string {
     .prose a:hover { border-bottom-color: rgba(255,255,255,0.5); }
     .prose img { max-width: 100%; border-radius: 6px; margin: 1.5em 0; }
     .prose hr { width: 50px; margin: 2em auto; }
+    /* Gallery */
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+    .photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; opacity: 0.85; transition: opacity 0.2s; }
+    .photo-grid img:hover { opacity: 1; }
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 100; align-items: center; justify-content: center; cursor: pointer; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 6px; }
     @media (max-width: 640px) {
       main { padding: 0 20px; }
       header { padding-top: 60px; }
@@ -350,18 +361,56 @@ function layout(title: string, nav: string, content: string): string {
 </html>`;
 }
 
+// Immich photo fetching with cache
+interface PhotoAsset { id: string; originalFileName: string; type: string; }
+let photoCache: { data: PhotoAsset[]; time: number } | null = null;
+
+async function fetchPhotos(): Promise<PhotoAsset[]> {
+  if (!IMMICH_SHARE_KEY || !IMMICH_ALBUM_ID) return [];
+  if (photoCache && Date.now() - photoCache.time < PHOTO_CACHE_TTL) return photoCache.data;
+  try {
+    const res = await fetch(`${IMMICH_URL}/api/albums/${IMMICH_ALBUM_ID}?key=${IMMICH_SHARE_KEY}`);
+    const data = await res.json() as any;
+    const assets = (data.assets || []).filter((a: any) => a.type === 'IMAGE').map((a: any) => ({
+      id: a.id, originalFileName: a.originalFileName, type: a.type
+    }));
+    photoCache = { data: assets, time: Date.now() };
+    return assets;
+  } catch { return photoCache?.data || []; }
+}
+
+function photoThumbUrl(id: string): string {
+  return `${IMMICH_URL}/api/assets/${id}/thumbnail?key=${IMMICH_SHARE_KEY}&size=preview`;
+}
+
+function photoFullUrl(id: string): string {
+  return `${IMMICH_URL}/api/assets/${id}/original?key=${IMMICH_SHARE_KEY}`;
+}
+
 function navLinks(active: string): string {
   const links = [
     { href: '/projects', label: 'projects' },
     { href: '/experience', label: 'experience' },
     { href: '/blog', label: 'blog' },
+    ...(IMMICH_SHARE_KEY ? [{ href: '/photos', label: 'photos' }] : []),
     { href: `https://${contact.github}`, label: 'github' },
   ];
   return links.map(l => `<a href="${l.href}"${l.label === active ? ' class="active"' : ''}>${l.label}</a>`).join('');
 }
 
 // ---- HOME ----
-app.get('/', (_req, res) => {
+app.get('/', async (_req, res) => {
+  const photos = await fetchPhotos();
+  const photoPreview = photos.length > 0 ? `
+    <hr class="si si10">
+    <section class="si si11">
+      <h2>photos</h2>
+      <div class="photo-grid" style="grid-template-columns:repeat(4,1fr)">
+        ${photos.slice(0, 4).map(p => `<img src="${photoThumbUrl(p.id)}" alt="${p.originalFileName}" loading="lazy" style="border-radius:4px">`).join('')}
+      </div>
+      <a href="/photos" class="view-all">view all photos &rarr;</a>
+    </section>` : '';
+
   const content = `
     <section class="si si3">
       <p class="about">${about}</p>
@@ -398,8 +447,9 @@ app.get('/', (_req, res) => {
       </div>
       <a href="/experience" class="view-all">full history &rarr;</a>
     </section>
-    <hr class="si si10">
-    <section class="si si11">
+    ${photoPreview}
+    <hr class="si si12">
+    <section class="si si12">
       <h2>contact</h2>
       <div class="contact-item"><span class="label">email</span> <a href="mailto:${contact.email}">${contact.email}</a></div>
       <div class="contact-item"><span class="label">github</span> <a href="https://${contact.github}">${contact.github.replace('github.com/', '')}</a></div>
@@ -533,6 +583,41 @@ app.get('/blog/:slug', (req, res) => {
     </section>`;
 
   res.send(layout(`${post.title} - ${contact.name}`, navLinks('blog'), content));
+});
+
+// ---- PHOTOS ----
+app.get('/photos', async (_req, res) => {
+  const photos = await fetchPhotos();
+  const content = `
+    <section class="si si3" style="padding-top:48px">
+      <a href="/" class="back-link">&larr; home</a>
+      <div class="page-title">photos</div>
+      ${photos.length === 0
+        ? '<p style="color:var(--text-muted);opacity:0.5">no photos available.</p>'
+        : `<div class="photo-grid">
+            ${photos.map(p => `<img src="${photoThumbUrl(p.id)}" data-full="${photoFullUrl(p.id)}" alt="${p.originalFileName}" loading="lazy" onclick="openLightbox(this)">`).join('')}
+          </div>
+          <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+            <img id="lightbox-img" src="" alt="">
+          </div>`
+      }
+    </section>`;
+
+  const extra = `<script>
+    function openLightbox(el) {
+      document.getElementById('lightbox-img').src = el.dataset.full;
+      document.getElementById('lightbox').classList.add('open');
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+      document.getElementById('lightbox-img').src = '';
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+  </script>`;
+
+  // Inject lightbox script before closing body
+  const page = layout(`Photos - ${contact.name}`, navLinks('photos'), content);
+  res.send(page.replace('</body>', extra + '</body>'));
 });
 
 // ---- ADMIN ----
