@@ -84,6 +84,8 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
           isTTY: true,
           isRaw: true,
           setRawMode() { return this; },
+          ref() { return this; },
+          unref() { return this; },
         }) as any;
 
         // Forward SSH channel data to stdin
