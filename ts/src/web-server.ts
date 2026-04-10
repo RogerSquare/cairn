@@ -1,4 +1,5 @@
-// HTTP web server -- serves the portfolio as a web page
+// HTTP web server -- serves the portfolio as a minimal web page
+// Inspired by antfu.me: clean, spacious, content-focused
 // Usage: npm run web (listens on port 3000)
 
 import express from 'express';
@@ -13,329 +14,420 @@ app.get('/', (_req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${contact.name} - ${contact.title}</title>
+  <title>${contact.name}</title>
   <meta name="description" content="${about.slice(0, 155)}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
     :root {
-      --bg: #0a0a0f;
-      --surface: #161b22;
-      --border: #30363d;
-      --text: #e4e4ef;
-      --muted: #8b949e;
-      --accent: #fdb32a;
-      --blue: #58a6ff;
-      --green: #3fb950;
-      --clay: #da7756;
-      --orange: #d29922;
-      --purple: #bc8cff;
-      --mono: 'JetBrains Mono', 'Fira Code', monospace;
-      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --bg: #050505;
+      --text: #bbb;
+      --text-strong: #ddd;
+      --text-deep: #fff;
+      --text-muted: #666;
+      --border: rgba(136, 136, 136, 0.15);
+      --accent: #bbb;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'DM Mono', 'Fira Code', monospace;
     }
+
     html { scroll-behavior: smooth; }
-    body { font-family: var(--sans); background: var(--bg); color: var(--text); line-height: 1.6; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { color: #ffc44d; }
-    .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
 
-    /* Terminal hint banner */
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.75;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Dot grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #111; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    /* Layout */
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    a {
+      color: var(--text-strong);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s, opacity 0.2s;
+    }
+
+    a:hover { border-bottom-color: rgba(255,255,255,0.3); }
+
+    /* Slide-in animation */
+    @keyframes slide-enter {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-in {
+      animation: slide-enter 0.6s ease both;
+    }
+
+    ${Array.from({length: 12}, (_, i) => `.slide-in-${i + 1} { animation-delay: ${(i + 1) * 80}ms; }`).join('\n    ')}
+
+    /* Terminal hint */
     .terminal-hint {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 0;
       text-align: center;
-      font-size: 13px;
-      color: var(--muted);
+      padding: 12px 0;
       font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      opacity: 0.5;
     }
+
     .terminal-hint code {
-      background: rgba(253, 179, 42, 0.12);
-      color: var(--accent);
-      padding: 3px 10px;
-      border-radius: 4px;
-      font-weight: 600;
+      color: var(--text-strong);
+      opacity: 0.8;
     }
 
-    /* Hero */
-    .hero {
-      padding: 80px 0 60px;
-      text-align: center;
+    /* Header */
+    header {
+      padding: 80px 0 0;
+      position: relative;
     }
-    .hero-name {
-      font-size: clamp(2.5rem, 5vw, 3.5rem);
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--clay), var(--accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: -0.02em;
+
+    nav {
+      position: absolute;
+      top: 32px;
+      right: 0;
+      display: flex;
+      gap: 20px;
     }
-    .hero-title { font-size: 1.3rem; color: var(--blue); font-weight: 500; margin-top: 4px; }
-    .hero-location { color: var(--muted); margin-top: 4px; }
-    .hero-links { margin-top: 20px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .hero-links a {
-      padding: 8px 20px;
-      border-radius: 8px;
+
+    nav a {
       font-size: 14px;
-      font-weight: 600;
-      border: 1px solid var(--border);
-      transition: all 0.2s;
+      color: var(--text);
+      opacity: 0.5;
+      border-bottom: none;
+      transition: opacity 0.2s;
     }
-    .hero-links a:hover { border-color: var(--accent); }
-    .hero-links a.primary { background: var(--accent); color: #0a0a0f; border-color: var(--accent); }
-    .hero-links a.primary:hover { background: #ffc44d; }
 
-    /* Section */
-    .section { padding: 60px 0; }
-    .section-alt { background: #0d0d14; }
-    .section-title {
-      font-size: 1.6rem;
+    nav a:hover { opacity: 1; border-bottom: none; }
+
+    .name {
+      font-size: 1.8rem;
       font-weight: 700;
-      margin-bottom: 32px;
+      color: var(--text-deep);
       letter-spacing: -0.02em;
     }
-    .section-title::before {
-      content: '// ';
-      color: var(--accent);
-      font-family: var(--mono);
-      font-weight: 400;
+
+    .title {
+      color: var(--text-muted);
+      font-size: 1rem;
+      margin-top: 2px;
+    }
+
+    .location {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      opacity: 0.6;
+      margin-top: 2px;
+    }
+
+    /* Sections */
+    section { padding: 40px 0; }
+
+    h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-strong);
+      margin-bottom: 20px;
+      letter-spacing: -0.01em;
+    }
+
+    /* Separator */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      width: 50px;
+      margin: 0 auto;
     }
 
     /* About */
-    .about-text { color: var(--muted); font-size: 1.05rem; line-height: 1.8; max-width: 700px; }
-    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 32px; }
-    .stat {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px;
-      text-align: center;
+    .about {
+      color: var(--text);
+      font-size: 0.95rem;
+      line-height: 1.8;
     }
-    .stat-value { font-size: 2rem; font-weight: 700; font-family: var(--mono); }
-    .stat-label { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
 
     /* Skills */
-    .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
-    .skill-group {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px;
+    .skill-category {
+      margin-bottom: 16px;
     }
-    .skill-group-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 12px;
+
+    .skill-category-name {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: lowercase;
+      margin-bottom: 4px;
     }
-    .skill-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-    .tag {
-      background: rgba(253, 179, 42, 0.08);
-      border: 1px solid rgba(253, 179, 42, 0.15);
+
+    .skill-list {
       color: var(--text);
-      padding: 4px 12px;
-      border-radius: 6px;
-      font-size: 0.82rem;
+      font-size: 0.9rem;
     }
+
+    .skill-list span { opacity: 0.7; }
+    .skill-list span:hover { opacity: 1; }
+    .skill-sep { color: var(--text-muted); opacity: 0.3; margin: 0 6px; }
 
     /* Projects */
-    .projects-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-    .project-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 24px;
-      transition: border-color 0.2s, transform 0.2s;
+    .project {
+      margin-bottom: 16px;
     }
-    .project-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-    .project-name { font-size: 1.15rem; font-weight: 700; color: var(--text); }
-    .project-desc { color: var(--muted); font-size: 0.9rem; margin-top: 8px; line-height: 1.5; }
-    .project-tech { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-    .project-tech span {
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 4px;
-      background: rgba(88, 166, 255, 0.1);
-      color: var(--blue);
-      border: 1px solid rgba(88, 166, 255, 0.15);
+
+    .project-link {
+      font-size: 0.95rem;
+      color: var(--text-strong);
+      opacity: 0.7;
+      transition: opacity 0.2s;
+      border-bottom: none;
     }
-    .project-link { margin-top: 12px; font-size: 0.85rem; }
+
+    .project-link:hover { opacity: 1; }
+
+    .project-desc {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 2px;
+      line-height: 1.5;
+    }
+
+    .project-tech {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.5;
+      margin-top: 3px;
+    }
 
     /* Experience */
-    .timeline { position: relative; padding-left: 28px; }
-    .timeline::before {
-      content: '';
-      position: absolute;
-      left: 6px;
-      top: 8px;
-      bottom: 8px;
-      width: 2px;
-      background: var(--border);
+    .exp-item {
+      margin-bottom: 24px;
     }
-    .timeline-item { position: relative; margin-bottom: 32px; }
-    .timeline-item:last-child { margin-bottom: 0; }
-    .timeline-dot {
-      position: absolute;
-      left: -28px;
-      top: 6px;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      border: 3px solid var(--accent);
-      background: var(--bg);
+
+    .exp-role {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-strong);
     }
-    .timeline-item:first-child .timeline-dot { background: var(--accent); }
-    .timeline-role { font-size: 1.1rem; font-weight: 700; }
-    .timeline-company { color: var(--blue); font-size: 0.9rem; }
-    .timeline-period { color: var(--muted); font-size: 0.85rem; font-family: var(--mono); margin-top: 2px; }
-    .timeline-desc { color: var(--muted); font-size: 0.9rem; margin-top: 8px; list-style: disc; padding-left: 18px; }
-    .timeline-desc li { margin-bottom: 4px; }
+
+    .exp-meta {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .exp-meta .period {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      opacity: 0.6;
+    }
+
+    .exp-desc {
+      margin-top: 6px;
+      padding-left: 16px;
+      list-style: none;
+    }
+
+    .exp-desc li {
+      font-size: 0.85rem;
+      color: var(--text);
+      opacity: 0.6;
+      line-height: 1.6;
+      position: relative;
+      padding-left: 12px;
+    }
+
+    .exp-desc li::before {
+      content: '-';
+      position: absolute;
+      left: 0;
+      color: var(--text-muted);
+      opacity: 0.4;
+    }
 
     /* Contact */
-    .contact-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-    .contact-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      transition: border-color 0.2s;
+    .contact-item {
+      margin-bottom: 6px;
+      font-size: 0.9rem;
     }
-    .contact-card:hover { border-color: var(--accent); }
-    .contact-icon { font-size: 1.3rem; width: 36px; text-align: center; }
-    .contact-label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    .contact-value { color: var(--text); font-weight: 500; margin-top: 2px; }
+
+    .contact-item .label {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      opacity: 0.5;
+      display: inline-block;
+      width: 70px;
+    }
+
+    .contact-item a {
+      opacity: 0.7;
+    }
+
+    .contact-item a:hover { opacity: 1; }
 
     /* Footer */
-    .footer {
-      border-top: 1px solid var(--border);
-      padding: 24px 0;
+    footer {
+      padding: 40px 0;
       text-align: center;
-      color: var(--muted);
-      font-size: 0.85rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      opacity: 0.4;
     }
 
-    @media (max-width: 768px) {
-      .stats { grid-template-columns: repeat(2, 1fr); }
-      .projects-grid { grid-template-columns: 1fr; }
-      .contact-grid { grid-template-columns: 1fr; }
+    footer code {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
+
+    /* Scroll to top */
+    .to-top {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.3s, background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      z-index: 10;
+    }
+
+    .to-top:hover { background: rgba(136,136,136,0.1); opacity: 1; }
+
+    @media (max-width: 640px) {
+      main { padding: 0 20px; }
+      header { padding-top: 60px; }
+      nav { position: static; margin-bottom: 32px; }
+      .name { font-size: 1.5rem; }
     }
   </style>
 </head>
 <body>
-  <!-- Terminal hint -->
-  <div class="terminal-hint">
-    Also available in your terminal: <code>ssh r-that.com</code>
+  <div class="terminal-hint slide-in slide-in-1">
+    try it in your terminal &mdash; <code>ssh r-that.com</code>
   </div>
 
-  <!-- Hero -->
-  <section class="hero">
-    <div class="container">
-      <h1 class="hero-name">${contact.name}</h1>
-      <p class="hero-title">${contact.title}</p>
-      <p class="hero-location">${contact.location}</p>
-      <div class="hero-links">
-        <a href="https://${contact.github}" class="primary">GitHub</a>
-        <a href="mailto:${contact.email}">Email</a>
-        <a href="https://${contact.website}">Website</a>
-      </div>
-    </div>
-  </section>
+  <main>
+    <header class="slide-in slide-in-2">
+      <nav>
+        <a href="#projects">projects</a>
+        <a href="#experience">experience</a>
+        <a href="https://${contact.github}">github</a>
+      </nav>
+      <div class="name">${contact.name}</div>
+      <div class="title">${contact.title}</div>
+      <div class="location">${contact.location}</div>
+    </header>
 
-  <!-- About -->
-  <section class="section">
-    <div class="container">
-      <h2 class="section-title">About</h2>
-      <p class="about-text">${about}</p>
-      <div class="stats">
-        <div class="stat"><div class="stat-value" style="color:var(--accent)">10</div><div class="stat-label">Years in IT</div></div>
-        <div class="stat"><div class="stat-value" style="color:var(--blue)">6+</div><div class="stat-label">Projects</div></div>
-        <div class="stat"><div class="stat-value" style="color:var(--green)">5+</div><div class="stat-label">Languages</div></div>
-        <div class="stat"><div class="stat-value" style="color:var(--purple)">3</div><div class="stat-label">Platforms</div></div>
-      </div>
-    </div>
-  </section>
+    <section class="slide-in slide-in-3">
+      <p class="about">${about}</p>
+    </section>
 
-  <!-- Skills -->
-  <section class="section section-alt">
-    <div class="container">
-      <h2 class="section-title">Skills</h2>
-      <div class="skills-grid">
-        ${skills.map(cat => `
-          <div class="skill-group">
-            <div class="skill-group-title" style="color:${cat.color}">${cat.icon} ${cat.name}</div>
-            <div class="skill-tags">${cat.items.map(s => `<span class="tag">${s}</span>`).join('')}</div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  </section>
+    <hr class="slide-in slide-in-4">
 
-  <!-- Projects -->
-  <section class="section">
-    <div class="container">
-      <h2 class="section-title">Projects</h2>
-      <div class="projects-grid">
-        ${projects.map(p => `
-          <div class="project-card">
-            <div class="project-name">${p.name}</div>
-            <div class="project-desc">${p.desc}</div>
-            <div class="project-tech">${p.tech.map(t => `<span>${t}</span>`).join('')}</div>
-            ${p.link ? `<div class="project-link"><a href="https://${p.link}">View on GitHub</a></div>` : ''}
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  </section>
-
-  <!-- Experience -->
-  <section class="section section-alt">
-    <div class="container">
-      <h2 class="section-title">Experience</h2>
-      <div class="timeline">
-        ${experience.map(exp => `
-          <div class="timeline-item">
-            <div class="timeline-dot"></div>
-            <div class="timeline-role">${exp.role}</div>
-            <div class="timeline-company">${exp.company}</div>
-            <div class="timeline-period">${exp.period}</div>
-            <ul class="timeline-desc">${exp.desc.map(d => `<li>${d}</li>`).join('')}</ul>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  </section>
-
-  <!-- Contact -->
-  <section class="section">
-    <div class="container">
-      <h2 class="section-title">Contact</h2>
-      <div class="contact-grid">
-        <a href="mailto:${contact.email}" class="contact-card">
-          <div class="contact-icon">&#9993;</div>
-          <div><div class="contact-label">Email</div><div class="contact-value">${contact.email}</div></div>
-        </a>
-        <a href="https://${contact.github}" class="contact-card">
-          <div class="contact-icon">&#9670;</div>
-          <div><div class="contact-label">GitHub</div><div class="contact-value">${contact.github}</div></div>
-        </a>
-        <a href="https://${contact.website}" class="contact-card">
-          <div class="contact-icon">&#9671;</div>
-          <div><div class="contact-label">Website</div><div class="contact-value">${contact.website}</div></div>
-        </a>
-        <div class="contact-card">
-          <div class="contact-icon">&#8962;</div>
-          <div><div class="contact-label">Location</div><div class="contact-value">${contact.location}</div></div>
+    <section class="slide-in slide-in-5">
+      <h2>skills</h2>
+      ${skills.map(cat => `
+        <div class="skill-category">
+          <div class="skill-category-name">${cat.name.toLowerCase()}</div>
+          <div class="skill-list">${cat.items.map(s => `<span>${s}</span>`).join('<span class="skill-sep">/</span>')}</div>
         </div>
-      </div>
-    </div>
-  </section>
+      `).join('')}
+    </section>
 
-  <footer class="footer">
-    <div class="container">&copy; ${new Date().getFullYear()} ${contact.name}. Also try <code style="background:rgba(253,179,42,0.12);color:#fdb32a;padding:2px 8px;border-radius:4px;font-family:var(--mono)">ssh r-that.com</code></div>
+    <hr class="slide-in slide-in-6">
+
+    <section id="projects" class="slide-in slide-in-7">
+      <h2>projects</h2>
+      ${projects.map(p => `
+        <div class="project">
+          ${p.link
+            ? `<a href="https://${p.link}" class="project-link">${p.name}</a>`
+            : `<span class="project-link">${p.name}</span>`
+          }
+          <div class="project-desc">${p.desc}</div>
+          <div class="project-tech">${p.tech.join(' / ')}</div>
+        </div>
+      `).join('')}
+    </section>
+
+    <hr class="slide-in slide-in-8">
+
+    <section id="experience" class="slide-in slide-in-9">
+      <h2>experience</h2>
+      ${experience.map(exp => `
+        <div class="exp-item">
+          <div class="exp-role">${exp.role}</div>
+          <div class="exp-meta">${exp.company} <span class="period">${exp.period}</span></div>
+          <ul class="exp-desc">${exp.desc.map(d => `<li>${d}</li>`).join('')}</ul>
+        </div>
+      `).join('')}
+    </section>
+
+    <hr class="slide-in slide-in-10">
+
+    <section class="slide-in slide-in-11">
+      <h2>contact</h2>
+      <div class="contact-item"><span class="label">email</span> <a href="mailto:${contact.email}">${contact.email}</a></div>
+      <div class="contact-item"><span class="label">github</span> <a href="https://${contact.github}">${contact.github.replace('github.com/', '')}</a></div>
+      <div class="contact-item"><span class="label">web</span> <a href="https://${contact.website}">${contact.website}</a></div>
+      <div class="contact-item"><span class="label">location</span> <span style="opacity:0.7">${contact.location}</span></div>
+    </section>
+  </main>
+
+  <footer class="slide-in slide-in-12">
+    &copy; ${new Date().getFullYear()} ${contact.name} &mdash; also available via <code>ssh r-that.com</code>
   </footer>
+
+  <button class="to-top" onclick="window.scrollTo({top:0})" aria-label="Scroll to top">&uarr;</button>
+
+  <script>
+    // Show scroll-to-top button after scrolling
+    const btn = document.querySelector('.to-top');
+    window.addEventListener('scroll', () => {
+      btn.style.opacity = window.scrollY > 300 ? '0.5' : '0';
+    });
+  </script>
 </body>
 </html>`;
 
