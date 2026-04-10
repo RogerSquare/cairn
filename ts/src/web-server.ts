@@ -186,175 +186,135 @@ function layout(title: string, nav: string, content: string): string {
     const btn = document.querySelector('.to-top');
     window.addEventListener('scroll', () => { btn.style.opacity = window.scrollY > 300 ? '0.5' : '0'; });
 
-    // Circuit Flow background animation
+    // Generative Branching Tree - circuit-meets-organic
     (function() {
       const canvas = document.getElementById('circuit-bg');
       const ctx = canvas.getContext('2d');
-      let W, H, nodes, edges, particles;
-      const SPACING = 60;
-      const NODE_OPACITY = 0.04;
-      const EDGE_OPACITY = 0.025;
-      const PARTICLE_COLOR = 'rgba(253, 179, 42, ';
-      const MAX_PARTICLES = 8;
+      let W, H;
       const isMobile = window.innerWidth < 640;
+      const INIT_ITERS = isMobile ? 4 : 6;
+      const MAX_LEN = 8;
+      const BRANCH_PROB = 0.5;
+      const SNAP_PROB = 0.6; // probability of snapping to 90-degree angles
+      const PI2 = Math.PI * 2;
+      const R15 = Math.PI / 12;
+      let steps = [];
+      let prevSteps = [];
+      let iterations = 0;
+      let frameId;
 
       function resize() {
         W = canvas.width = window.innerWidth;
         H = canvas.height = window.innerHeight;
-        buildGrid();
+        generate();
       }
 
-      function buildGrid() {
-        nodes = [];
-        edges = [];
-        const cols = Math.ceil(W / SPACING) + 1;
-        const rows = Math.ceil(H / SPACING) + 1;
-        const grid = [];
+      function snapAngle(rad) {
+        // Snap to nearest 90 degrees with some probability
+        if (Math.random() < SNAP_PROB) {
+          const snapped = Math.round(rad / (Math.PI / 2)) * (Math.PI / 2);
+          return snapped + (Math.random() - 0.5) * 0.15; // slight wobble
+        }
+        return rad;
+      }
 
-        for (let r = 0; r < rows; r++) {
-          grid[r] = [];
-          for (let c = 0; c < cols; c++) {
-            // Offset some nodes slightly for organic feel
-            const jx = (Math.random() - 0.5) * 8;
-            const jy = (Math.random() - 0.5) * 8;
-            const node = {
-              x: c * SPACING + jx,
-              y: r * SPACING + jy,
-              pulse: Math.random() * Math.PI * 2,
-              speed: 0.005 + Math.random() * 0.01,
-              active: Math.random() > 0.3, // 70% of nodes exist
-            };
-            grid[r][c] = node;
-            if (node.active) nodes.push(node);
-          }
+      function branch(x, y, rad) {
+        const len = Math.random() * MAX_LEN;
+        const nx = x + Math.cos(rad) * len;
+        const ny = y + Math.sin(rad) * len;
+
+        // Boundary check with padding
+        if (nx < -50 || nx > W + 50 || ny < -50 || ny > H + 50) return;
+
+        // Draw the line segment
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+
+        // Circuit style: sometimes draw L-shaped segments
+        if (Math.random() < 0.3 && len > 4) {
+          const mid = len * 0.5;
+          const mx = x + Math.cos(rad) * mid;
+          const perpRad = rad + Math.PI / 2;
+          const offset = (Math.random() - 0.5) * 4;
+          const my = y + Math.sin(rad) * mid + Math.sin(perpRad) * offset;
+          ctx.lineTo(mx, my);
+          ctx.lineTo(nx, ny);
+        } else {
+          ctx.lineTo(nx, ny);
+        }
+        ctx.stroke();
+
+        // Occasionally draw a small node dot at junctions
+        if (Math.random() < 0.15) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+          ctx.fillRect(nx - 1, ny - 1, 2, 2);
         }
 
-        // Create edges between adjacent active nodes
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
-            if (!grid[r][c].active) continue;
-            // Right neighbor
-            if (c + 1 < cols && grid[r][c + 1].active && Math.random() > 0.3) {
-              edges.push([grid[r][c], grid[r][c + 1]]);
-            }
-            // Down neighbor
-            if (r + 1 < rows && grid[r + 1][c].active && Math.random() > 0.3) {
-              edges.push([grid[r][c], grid[r + 1][c]]);
-            }
-          }
+        // Spawn children
+        const rad1 = snapAngle(rad + Math.random() * R15);
+        const rad2 = snapAngle(rad - Math.random() * R15);
+
+        if (iterations < INIT_ITERS || Math.random() < BRANCH_PROB) {
+          steps.push(() => branch(nx, ny, rad1));
         }
-
-        // Initialize particles
-        particles = [];
+        if (iterations < INIT_ITERS || Math.random() < BRANCH_PROB) {
+          steps.push(() => branch(nx, ny, rad2));
+        }
       }
 
-      function spawnParticle() {
-        if (particles.length >= (isMobile ? 3 : MAX_PARTICLES) || edges.length === 0) return;
-        const edge = edges[Math.floor(Math.random() * edges.length)];
-        particles.push({
-          from: edge[0],
-          to: edge[1],
-          progress: 0,
-          speed: 0.008 + Math.random() * 0.012,
-          trail: [],
-        });
+      function frame() {
+        iterations++;
+        prevSteps = steps;
+        steps = [];
+        if (prevSteps.length === 0) {
+          cancelAnimationFrame(frameId);
+          return;
+        }
+        // Cap branches per frame to stay performant
+        const batch = prevSteps.slice(0, isMobile ? 30 : 80);
+        batch.forEach(fn => fn());
+        frameId = requestAnimationFrame(frame);
       }
 
-      function draw() {
+      function generate() {
         ctx.clearRect(0, 0, W, H);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.lineWidth = 0.8;
+        steps = [];
+        prevSteps = [];
+        iterations = 0;
 
-        // Draw edges
-        ctx.strokeStyle = 'rgba(255, 255, 255, ' + EDGE_OPACITY + ')';
-        ctx.lineWidth = 0.5;
-        for (const [a, b] of edges) {
-          ctx.beginPath();
-          // Draw L-shaped circuit paths instead of straight lines
-          if (Math.abs(a.x - b.x) > Math.abs(a.y - b.y)) {
-            const midX = (a.x + b.x) / 2;
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(midX, a.y);
-            ctx.lineTo(midX, b.y);
-            ctx.lineTo(b.x, b.y);
-          } else {
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-          }
-          ctx.stroke();
+        // Multiple start points from edges and center
+        const starts = [
+          { x: 0, y: H * 0.3, rad: 0 },
+          { x: W, y: H * 0.6, rad: Math.PI },
+          { x: W * 0.4, y: 0, rad: Math.PI / 2 },
+          { x: W * 0.7, y: H, rad: -Math.PI / 2 },
+        ];
+
+        if (!isMobile) {
+          starts.push({ x: W * 0.5, y: H * 0.5, rad: Math.random() * PI2 });
+          starts.push({ x: W * 0.5, y: H * 0.5, rad: Math.random() * PI2 });
         }
 
-        // Draw nodes with pulse
-        for (const node of nodes) {
-          node.pulse += node.speed;
-          const opacity = NODE_OPACITY + Math.sin(node.pulse) * 0.015;
-          ctx.fillStyle = 'rgba(255, 255, 255, ' + Math.max(0.01, opacity) + ')';
-          ctx.fillRect(node.x - 1, node.y - 1, 2, 2);
-        }
+        starts.forEach(s => {
+          steps.push(() => branch(s.x, s.y, s.rad));
+          steps.push(() => branch(s.x, s.y, s.rad + Math.PI));
+        });
 
-        // Update and draw particles
-        for (let i = particles.length - 1; i >= 0; i--) {
-          const p = particles[i];
-          p.progress += p.speed;
-
-          if (p.progress >= 1) {
-            particles.splice(i, 1);
-            continue;
-          }
-
-          // Calculate position along the path
-          const { from, to } = p;
-          let px, py;
-          if (Math.abs(from.x - to.x) > Math.abs(from.y - to.y)) {
-            const midX = (from.x + to.x) / 2;
-            if (p.progress < 0.33) {
-              const t = p.progress / 0.33;
-              px = from.x + (midX - from.x) * t;
-              py = from.y;
-            } else if (p.progress < 0.66) {
-              const t = (p.progress - 0.33) / 0.33;
-              px = midX;
-              py = from.y + (to.y - from.y) * t;
-            } else {
-              const t = (p.progress - 0.66) / 0.34;
-              px = midX + (to.x - midX) * t;
-              py = to.y;
-            }
-          } else {
-            px = from.x + (to.x - from.x) * p.progress;
-            py = from.y + (to.y - from.y) * p.progress;
-          }
-
-          // Store trail positions
-          p.trail.push({ x: px, y: py });
-          if (p.trail.length > 8) p.trail.shift();
-
-          // Draw trail
-          for (let t = 0; t < p.trail.length; t++) {
-            const alpha = (t / p.trail.length) * 0.15;
-            const size = 1 + (t / p.trail.length);
-            ctx.fillStyle = PARTICLE_COLOR + alpha + ')';
-            ctx.fillRect(p.trail[t].x - size/2, p.trail[t].y - size/2, size, size);
-          }
-
-          // Draw particle head with glow
-          ctx.fillStyle = PARTICLE_COLOR + '0.25)';
-          ctx.fillRect(px - 1.5, py - 1.5, 3, 3);
-
-          // Subtle glow
-          ctx.fillStyle = PARTICLE_COLOR + '0.06)';
-          ctx.fillRect(px - 4, py - 4, 8, 8);
-        }
-
-        // Spawn new particles periodically
-        if (Math.random() < 0.02) spawnParticle();
-
-        requestAnimationFrame(draw);
+        frameId = requestAnimationFrame(frame);
       }
 
-      window.addEventListener('resize', resize);
+      // Click to regenerate
+      canvas.style.cursor = 'pointer';
+      canvas.addEventListener('click', generate);
+      window.addEventListener('resize', () => {
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        generate();
+      });
+
       resize();
-      // Spawn a few initial particles
-      for (let i = 0; i < 3; i++) spawnParticle();
-      draw();
     })();
   </script>
 </body>
@@ -399,18 +359,7 @@ function navLinks(active: string): string {
 }
 
 // ---- HOME ----
-app.get('/', async (_req, res) => {
-  const photos = await fetchPhotos();
-  const photoPreview = photos.length > 0 ? `
-    <hr class="si si10">
-    <section class="si si11">
-      <h2>photos</h2>
-      <div class="photo-grid" style="grid-template-columns:repeat(4,1fr)">
-        ${photos.slice(0, 4).map(p => `<img src="${photoThumbUrl(p.id)}" alt="${p.originalFileName}" loading="lazy" style="border-radius:4px">`).join('')}
-      </div>
-      <a href="/photos" class="view-all">view all photos &rarr;</a>
-    </section>` : '';
-
+app.get('/', (_req, res) => {
   const content = `
     <section class="si si3">
       <p class="about">${about}</p>
@@ -447,9 +396,8 @@ app.get('/', async (_req, res) => {
       </div>
       <a href="/experience" class="view-all">full history &rarr;</a>
     </section>
-    ${photoPreview}
-    <hr class="si si12">
-    <section class="si si12">
+    <hr class="si si10">
+    <section class="si si11">
       <h2>contact</h2>
       <div class="contact-item"><span class="label">email</span> <a href="mailto:${contact.email}">${contact.email}</a></div>
       <div class="contact-item"><span class="label">github</span> <a href="https://${contact.github}">${contact.github.replace('github.com/', '')}</a></div>
