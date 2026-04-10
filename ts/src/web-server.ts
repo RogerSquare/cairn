@@ -213,7 +213,7 @@ function layout(title: string, nav: string, content: string): string {
       const padColor = '#88888812';
       const viaColor = '#88888825';
       const MIN_BRANCH = 45;
-      const FPS = 40;
+      const FPS = 20;
       const interval = 1000 / FPS;
       // PCB traces only move in 0, 45, 90, 135, 180, 225, 270, 315 degrees
       const ANGLES = [0, PI/4, PI/2, 3*PI/4, PI, 5*PI/4, 3*PI/2, 7*PI/4];
@@ -311,7 +311,7 @@ function layout(title: string, nav: string, content: string): string {
 
         // Stagger: 50% of steps deferred to next frame for organic timing
         prevSteps.forEach(function(fn) {
-          if (random() < 0.5) steps.push(fn);
+          if (random() < 0.65) steps.push(fn);
           else fn();
         });
 
