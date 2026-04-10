@@ -92,9 +92,13 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
         stdout.clearScreenDown = () => { stdout.write('\x1b[J'); return true; };
         stdout.getWindowSize = () => [stdout.columns, stdout.rows];
 
-        // Pipe stdout to the SSH channel
+        // Pipe stdout to the SSH channel, converting \n to \r\n for SSH terminals
         stdout.on('data', (chunk: Buffer) => {
-          if (channel.writable) channel.write(chunk);
+          if (!channel.writable) return;
+          // Replace bare \n (not preceded by \r) with \r\n
+          const str = chunk.toString('binary');
+          const fixed = str.replace(/(?<!\r)\n/g, '\r\n');
+          channel.write(Buffer.from(fixed, 'binary'));
         });
 
         // Create readable stream for input
