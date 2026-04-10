@@ -9,7 +9,7 @@ import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
-import { Duplex } from 'stream';
+import { Duplex, PassThrough } from 'stream';
 import Portfolio from './Portfolio.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -62,38 +62,33 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
       session.on('shell', (accept: any) => {
         const channel = accept();
 
-        // Create a Duplex stream wrapper that Ink can use
-        // Ink needs stdout (Writable) and stdin (Readable)
-        const stdout = new Duplex({
-          read() {},
-          write(chunk, encoding, callback) {
-            if (channel.writable) {
-              channel.write(chunk, encoding, callback);
-            } else {
-              callback();
-            }
-          },
+        // Create writable stream that pipes to the SSH channel
+
+        const stdout = Object.assign(new PassThrough(), {
+          columns: 80,
+          rows: 24,
+          isTTY: true,
+          cursorTo() { return true; },
+          clearLine() { return true; },
+          moveCursor() { return true; },
+          getWindowSize() { return [this.columns, this.rows]; },
         }) as any;
 
-        // Copy terminal dimensions
-        stdout.columns = 80;
-        stdout.rows = 24;
-        stdout.isTTY = true;
+        // Pipe stdout to the SSH channel
+        stdout.on('data', (chunk: Buffer) => {
+          if (channel.writable) channel.write(chunk);
+        });
 
-        // Make stdin from channel
-        const stdin = new Duplex({
-          read() {},
-          write(chunk, encoding, callback) {
-            callback();
-          },
+        // Create readable stream for input
+        const stdin = Object.assign(new PassThrough(), {
+          isTTY: true,
+          isRaw: true,
+          setRawMode() { return this; },
         }) as any;
 
-        stdin.isTTY = true;
-        stdin.setRawMode = () => stdin;
-
-        // Forward channel data to stdin
+        // Forward SSH channel data to stdin
         channel.on('data', (data: Buffer) => {
-          stdin.push(data);
+          stdin.write(data);
         });
 
         // Handle window resize
@@ -112,7 +107,7 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
             stdin,
             exitOnCtrlC: false,
             patchConsole: false,
-            alternateScreen: true,
+            interactive: true,
           });
 
           inkInstance.waitUntilExit().then(() => {
