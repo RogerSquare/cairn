@@ -55,7 +55,10 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
     client.on('session', (accept: () => any) => {
       const session = accept();
 
+      let ptyInfo = { cols: 80, rows: 24 };
+
       session.on('pty', (accept: any, _reject: any, info: any) => {
+        ptyInfo = { cols: info.cols || 80, rows: info.rows || 24 };
         accept?.();
       });
 
@@ -65,8 +68,8 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
         // Create writable stream that pipes to the SSH channel
 
         const stdout = Object.assign(new PassThrough(), {
-          columns: 80,
-          rows: 24,
+          columns: ptyInfo.cols,
+          rows: ptyInfo.rows,
           isTTY: true,
           cursorTo() { return true; },
           clearLine() { return true; },
