@@ -77,7 +77,7 @@ export default function Portfolio() {
     const msg = chatInput.trim();
     setChatInput('');
     setIdleTicks(0);
-    setChatMessages(prev => [...prev.slice(-4), { from: 'user', text: msg }]);
+    setChatMessages([{ from: 'user', text: msg }]);
     setRobotState('think');
 
     const newHistory: ChatMessage[] = [...history, { role: 'user', content: msg }];
@@ -100,7 +100,7 @@ export default function Portfolio() {
       () => {
         // Done streaming
         const final = accumulated.trim();
-        setChatMessages(prev => [...prev.slice(-4), { from: 'bot', text: final }]);
+        setChatMessages([{ from: 'bot', text: final }]);
         setHistory(prev => [...prev.slice(-6), { role: 'assistant', content: final }]);
         setIsTyping(false);
         setTypingText('');
@@ -109,7 +109,7 @@ export default function Portfolio() {
       },
       (fallback) => {
         // Ollama unavailable, use canned response
-        setChatMessages(prev => [...prev.slice(-4), { from: 'bot', text: fallback }]);
+        setChatMessages([{ from: 'bot', text: fallback }]);
         setHistory(prev => [...prev.slice(-6), { role: 'assistant', content: fallback }]);
         setIsTyping(false);
         setTypingText('');
@@ -178,27 +178,15 @@ export default function Portfolio() {
               })}
             </Box>
             <Box flexDirection="column" width={28} marginTop={1}>
-              {/* Fading message history -- older messages dimmer */}
-              {chatMessages.slice(-3).map((msg, i, arr) => {
-                const age = arr.length - 1 - i;
-                const color = msg.from === 'bot'
-                  ? (age === 0 ? '#555' : age === 1 ? '#333' : '#222')
-                  : (age === 0 ? '#666' : '#333');
-                return (
-                  <Box key={`cm-${i}`} marginBottom={0}>
-                    <Text color={color} wrap="wrap" dimColor={age > 1}>{msg.from === 'user' ? '> ' : ''}{msg.text}</Text>
-                  </Box>
-                );
-              })}
-              {/* Currently streaming response */}
-              {isTyping && (
-                <Box>
-                  <Text color="#555" wrap="wrap">
-                    {typingText}
-                    <Text color="#00bcd4">█</Text>
-                  </Text>
-                </Box>
-              )}
+              {/* Current response or streaming */}
+              {isTyping ? (
+                <Text color="#555" wrap="wrap">
+                  {typingText}
+                  <Text color="#00bcd4">█</Text>
+                </Text>
+              ) : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].from === 'bot' ? (
+                <Text color="#444" wrap="wrap">{chatMessages[chatMessages.length - 1].text}</Text>
+              ) : null}
             </Box>
           </Box>
         </Box>
