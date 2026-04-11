@@ -1,4 +1,4 @@
-// About section -- streaming bio, inline stats as plain text
+// About section -- streaming conversational bio
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text } from 'ink';
@@ -41,12 +41,6 @@ export default function AboutSection() {
           {!done && <Text color="#555">{cursorVisible ? '█' : ' '}</Text>}
         </Text>
       </Box>
-
-      {done && (
-        <Box marginTop={1}>
-          <Text color="#444">10 years  /  6+ projects  /  5+ languages  /  3 platforms</Text>
-        </Box>
-      )}
     </Box>
   );
 }

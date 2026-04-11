@@ -7,8 +7,13 @@ export const contact = {
   location: 'Houston, TX',
 };
 
-export const about =
-  'Transitioning from a robust background in Systems Engineering and Infrastructure to dedicated Software Development. I leverage my deep IT experience to build efficient, automated, and scalable software solutions. Passionate about coding, I specialize in creating tools that optimize workflows, utilizing platforms like Go, React, TypeScript, and Python to solve complex problems.';
+export const about = `hey -- i'm roger.
+
+i started in IT about ten years ago on a service desk, answering calls and solving problems one ticket at a time. over the years i moved into systems engineering, learned to automate the repetitive stuff, and somewhere along the way fell in love with building software.
+
+these days i spend most of my time writing code -- building tools and applications that scratch an itch or solve a problem i ran into. i'm not the smartest person in the room but i'm stubborn enough to figure things out and i genuinely enjoy the process of making something from nothing.
+
+i work mostly in typescript, go, swift, and python. still learning every day. based in houston.`;
 
 export const skills = [
   { name: 'Languages', icon: '◇', color: '#58a6ff', items: ['Go', 'Swift', 'TypeScript', 'JavaScript', 'Python', 'PowerShell'] },
