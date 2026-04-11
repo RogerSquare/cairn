@@ -1,7 +1,7 @@
 // Portfolio data -- loaded from data.json at runtime
 // Edit data.json directly or use the admin panel at /admin
 
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -44,7 +44,6 @@ export function getExperience(): Experience[] { return loadData().experience; }
 
 // Save updated data
 export function saveData(data: any) {
-  const { writeFileSync } = require('fs') as typeof import('fs');
   writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), 'utf8');
 }
 
