@@ -150,19 +150,22 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
         let inkInstance: ReturnType<typeof render> | null = null;
 
         try {
+          // Enter alt screen and clear
+          channel.write('\x1b[?1049h\x1b[H\x1b[2J');
+
           inkInstance = render(<Portfolio />, {
             stdout,
             stdin,
             exitOnCtrlC: false,
             patchConsole: false,
             interactive: true,
-            alternateScreen: true,
           });
 
           inkInstance.waitUntilExit().then(() => {
-            // Restore alternate screen, show cursor
+            if (channel.writable) channel.write('\x1b[?1049l\x1b[?25h');
             channel.end();
           }).catch(() => {
+            if (channel.writable) channel.write('\x1b[?1049l\x1b[?25h');
             channel.end();
           });
         } catch (err) {
