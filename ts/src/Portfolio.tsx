@@ -11,7 +11,7 @@ import SkillsSection from './sections/Skills.js';
 import ProjectsSection from './sections/Projects.js';
 import ExperienceSection from './sections/Experience.js';
 import ContactSection from './sections/Contact.js';
-import { getResponse, randomGreeting, randomIdleQuip, type RobotState, FRAMES } from './chat-engine.js';
+import { getResponse, streamResponse, randomGreeting, randomIdleQuip, type RobotState, type ChatMessage, FRAMES } from './chat-engine.js';
 
 export const TAB_DEFS: (TabDef & { component: () => React.ReactElement })[] = [
   { key: '1', label: 'About', icon: '◉', color: '#58a6ff', component: AboutSection },
@@ -32,6 +32,7 @@ export default function Portfolio() {
   const [typingText, setTypingText] = useState('');
   const [typingIdx, setTypingIdx] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
+  const [history, setHistory] = useState<ChatMessage[]>([]);
   const hasGreeted = useRef(false);
   const { exit } = useApp();
 
@@ -97,17 +98,50 @@ export default function Portfolio() {
   }, [chatMode]);
 
   function sendChat() {
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || isTyping) return;
     const msg = chatInput.trim();
     setChatInput('');
     setIdleTicks(0);
     setChatMessages(prev => [...prev.slice(-4), { from: 'user', text: msg }]);
     setRobotState('think');
 
-    setTimeout(() => {
-      const response = getResponse(msg);
-      startTyping(response);
-    }, 300 + Math.random() * 300);
+    const newHistory: ChatMessage[] = [...history, { role: 'user', content: msg }];
+    setHistory(newHistory.slice(-6));
+
+    // Try Ollama streaming, fallback to canned
+    setIsTyping(true);
+    setTypingText('');
+    setTypingIdx(0);
+    let accumulated = '';
+
+    streamResponse(
+      newHistory,
+      (token) => {
+        accumulated += token;
+        setTypingText(accumulated);
+        setTypingIdx(accumulated.length);
+        setRobotState(accumulated.length % 6 < 3 ? 'talk1' : 'talk2');
+      },
+      () => {
+        // Done streaming
+        const final = accumulated.trim();
+        setChatMessages(prev => [...prev.slice(-4), { from: 'bot', text: final }]);
+        setHistory(prev => [...prev.slice(-6), { role: 'assistant', content: final }]);
+        setIsTyping(false);
+        setTypingText('');
+        setTypingIdx(0);
+        setRobotState('idle');
+      },
+      (fallback) => {
+        // Ollama unavailable, use canned response
+        setChatMessages(prev => [...prev.slice(-4), { from: 'bot', text: fallback }]);
+        setHistory(prev => [...prev.slice(-6), { role: 'assistant', content: fallback }]);
+        setIsTyping(false);
+        setTypingText('');
+        setTypingIdx(0);
+        setRobotState('idle');
+      },
+    );
   }
 
   useInput((input, key) => {
