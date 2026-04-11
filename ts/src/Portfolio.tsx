@@ -120,40 +120,39 @@ export default function Portfolio() {
 
   return (
     <Box flexDirection="column" padding={1}>
-      {/* Top row: header left, robot + speech right */}
-      <Box justifyContent="space-between">
-        <Box flexDirection="column">
-          <Header />
-        </Box>
-        <Box>
-          {/* Speech bubble to the left of robot */}
-          {lastBotMsg && (
-            <Box flexDirection="column" justifyContent="center" marginRight={1} width={32}>
-              <Text color="#444" wrap="wrap">{lastBotMsg.text}</Text>
-            </Box>
-          )}
-          {/* Robot with cyan eyes/mouth */}
-          <Box flexDirection="column">
-            {frame.map((line, i) => {
-              // Only the face row (index 1) gets cyan coloring on non-box characters
-              if (i !== 1) return <Text key={`r-${i}`} color="#333">{line}</Text>;
-              return (
-                <Text key={`r-${i}`}>
-                  {line.split('').map((ch, j) => {
-                    const isBox = '┌┐└┘│─┬┴├┤ '.includes(ch);
-                    return <Text key={`c-${j}`} color={isBox ? '#333' : '#00bcd4'}>{ch}</Text>;
-                  })}
-                </Text>
-              );
-            })}
-          </Box>
-        </Box>
-      </Box>
+      {/* Header */}
+      <Header />
 
       {/* Tabs and content */}
       <TabBar tabs={TAB_DEFS} activeIdx={activeTab} />
       <Box flexDirection="column" borderStyle="round" borderColor="#222" paddingX={2} paddingY={1}>
-        <ActiveContent />
+        <Box justifyContent="space-between">
+          {/* Section content */}
+          <Box flexDirection="column" flexGrow={1}>
+            <ActiveContent />
+          </Box>
+          {/* Robot + speech inside content box */}
+          <Box flexDirection="column" alignItems="flex-end" marginLeft={2} flexShrink={0}>
+            <Box flexDirection="column">
+              {frame.map((line, i) => {
+                if (i !== 2) return <Text key={`r-${i}`} color="#333">{line}</Text>;
+                return (
+                  <Text key={`r-${i}`}>
+                    {line.split('').map((ch, j) => {
+                      const isBox = '┌┐└┘│─┬┴├┤ '.includes(ch);
+                      return <Text key={`c-${j}`} color={isBox ? '#333' : '#00bcd4'}>{ch}</Text>;
+                    })}
+                  </Text>
+                );
+              })}
+            </Box>
+            {lastBotMsg && (
+              <Box width={28} marginTop={0}>
+                <Text color="#444" wrap="wrap">{lastBotMsg.text}</Text>
+              </Box>
+            )}
+          </Box>
+        </Box>
       </Box>
 
       {/* Status line */}
