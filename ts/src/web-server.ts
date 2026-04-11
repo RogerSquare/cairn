@@ -674,23 +674,64 @@ function loadPosts(tagFilter?: string): Post[] {
 app.get('/blog', (req, res) => {
   const contact = getContact();
   const tag = req.query.tag as string | undefined;
-  const posts = loadPosts(tag);
+  const q = (req.query.q as string || '').trim().toLowerCase();
+  let posts = loadPosts(tag);
 
-  const content = `
-    <section class="si si3" style="padding-top:48px">
+  // Search filter: match title, description, content
+  if (q) {
+    posts = posts.filter(p =>
+      p.title.toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q) ||
+      (p.content || '').toLowerCase().includes(q)
+    );
+  }
 
-      <div class="page-title">blog${tag ? ` <span style="font-weight:400;font-size:0.9rem;color:var(--text-muted)">tagged: ${esc(tag)}</span>` : ''}</div>
-      ${posts.length === 0
-        ? '<p style="color:var(--text-muted);opacity:0.5">no posts yet.</p>'
-        : posts.map((p, i) => `
-          <div class="post-item si si${Math.min(i + 4, 12)}">
+  // Group posts by year-month
+  const grouped = new Map<string, typeof posts>();
+  for (const p of posts) {
+    const d = p.date ? new Date(p.date) : null;
+    const key = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'undated';
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(p);
+  }
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function formatGroup(key: string): string {
+    if (key === 'undated') return 'Undated';
+    const [y, m] = key.split('-');
+    return `${monthNames[parseInt(m) - 1]} ${y}`;
+  }
+
+  let postsHtml = '';
+  if (posts.length === 0) {
+    postsHtml = `<p style="color:var(--text-muted);opacity:0.5">${q ? 'no posts match your search.' : 'no posts yet.'}</p>`;
+  } else {
+    let idx = 0;
+    for (const [key, group] of grouped) {
+      postsHtml += `<div style="color:var(--text-muted);font-size:0.8rem;font-family:var(--mono);margin-top:24px;margin-bottom:8px">${formatGroup(key)}</div>`;
+      for (const p of group) {
+        postsHtml += `
+          <div class="post-item si si${Math.min(idx + 4, 12)}">
             <a href="/blog/${esc(p.slug)}" class="post-title">${esc(p.title)}</a>
             <div class="post-meta">${p.date}</div>
             ${p.description ? `<div class="post-excerpt">${p.description}</div>` : ''}
             ${p.tags.length > 0 ? `<div class="post-tags">${p.tags.map(t => `<a href="/blog?tag=${t}">#${t}</a>`).join('')}</div>` : ''}
-          </div>
-        `).join('')
+          </div>`;
+        idx++;
       }
+    }
+  }
+
+  const subtitle = tag ? ` <span style="font-weight:400;font-size:0.9rem;color:var(--text-muted)">tagged: ${esc(tag)}</span>` : q ? ` <span style="font-weight:400;font-size:0.9rem;color:var(--text-muted)">search: ${esc(q)}</span>` : '';
+  const content = `
+    <section class="si si3" style="padding-top:48px">
+      <div class="page-title">blog${subtitle}</div>
+      <form method="GET" action="/blog" style="margin-bottom:24px;display:flex;gap:8px">
+        <input type="search" name="q" value="${esc(q)}" placeholder="Search posts..." style="flex:1;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:var(--font);outline:none">
+        ${tag ? `<input type="hidden" name="tag" value="${esc(tag)}">` : ''}
+        <button type="submit" style="padding:8px 16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:13px">search</button>
+      </form>
+      ${postsHtml}
     </section>`;
 
   res.send(layout(`Blog - ${contact.name}`, navLinks('blog'), content, false, { description: 'Blog posts about software development, terminal UI, and engineering', path: '/blog' }));
