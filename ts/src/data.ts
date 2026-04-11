@@ -7,17 +7,13 @@ export const contact = {
   location: 'Houston, TX',
 };
 
-export const about = `ten years in IT, starting from the service desk and working my way through systems engineering. learned to automate what i could, and eventually realized i enjoyed building the tools more than using them.
+export const about = `Software engineer with a systems background. I build full-stack applications, developer tools, and infrastructure automation.
 
-now i focus on software development -- full-stack applications, developer tools, and infrastructure automation. i approach problems with patience and persistence, and take pride in writing clean, maintainable solutions.
+Ten years of solving problems \u2014 first on the service desk, now in code.
 
-working in typescript, go, swift, and python. based in houston, tx.`;
+TypeScript, Go, Swift, Python. Houston, TX.`;
 
-export const aboutWeb = `ten years in IT, starting from the service desk and working my way through systems engineering. learned to automate what i could, and eventually realized i enjoyed building the tools more than using them.
-
-now i focus on software development -- full-stack applications, developer tools, and infrastructure automation. i approach problems with patience and persistence, and take pride in writing clean, maintainable solutions.
-
-working in typescript, go, swift, and python. based in houston, tx.`;
+export const aboutWeb = about;
 
 export const skills = [
   { name: 'Languages', icon: '◇', color: '#58a6ff', items: ['Go', 'Swift', 'TypeScript', 'JavaScript', 'Python', 'PowerShell'] },
