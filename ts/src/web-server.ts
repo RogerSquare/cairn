@@ -172,12 +172,22 @@ function layout(title: string, nav: string, content: string): string {
     .prose img { max-width: 100%; border-radius: 6px; margin: 1.5em 0; }
     .prose hr { width: 50px; margin: 2em auto; }
     /* Gallery */
-    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
-    .photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; opacity: 0.85; transition: opacity 0.2s; }
-    .photo-grid img:hover { opacity: 1; }
-    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 100; align-items: center; justify-content: center; cursor: pointer; }
+    .photo-grid-wrap { max-width: 100vw; margin: 0 -24px; padding: 0 24px; }
+    @media (min-width: 700px) { .photo-grid-wrap { max-width: 90vw; margin: 0 calc((640px - 90vw) / 2); padding: 0; } }
+    .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    @media (min-width: 600px) { .photo-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 900px) { .photo-grid { grid-template-columns: repeat(4, 1fr); } }
+    .photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 3px; cursor: pointer; opacity: 0.8; transition: opacity 0.2s, transform 0.2s; }
+    .photo-grid img:hover { opacity: 1; transform: scale(1.02); }
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; align-items: center; justify-content: center; cursor: pointer; }
     .lightbox.open { display: flex; }
-    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 6px; }
+    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 4px; }
+    .lightbox-nav { position: fixed; top: 50%; transform: translateY(-50%); font-size: 28px; color: rgba(255,255,255,0.4); cursor: pointer; padding: 16px; z-index: 101; transition: color 0.2s; border: none; background: none; }
+    .lightbox-nav:hover { color: rgba(255,255,255,0.8); }
+    .lightbox-prev { left: 12px; }
+    .lightbox-next { right: 12px; }
+    .lightbox-close { position: fixed; top: 16px; right: 20px; font-size: 24px; color: rgba(255,255,255,0.4); cursor: pointer; z-index: 101; border: none; background: none; transition: color 0.2s; }
+    .lightbox-close:hover { color: rgba(255,255,255,0.8); }
     @media (max-width: 640px) {
       main { padding: 0 20px; }
       .header-top { padding: 20px 0; }
@@ -599,25 +609,41 @@ app.get('/photos', async (_req, res) => {
       <div class="page-title">photos</div>
       ${photos.length === 0
         ? '<p style="color:var(--text-muted);opacity:0.5">no photos available.</p>'
-        : `<div class="photo-grid">
-            ${photos.map(p => `<img src="${photoThumbUrl(p.id)}" data-full="${photoFullUrl(p.id)}" alt="${p.originalFileName}" loading="lazy" onclick="openLightbox(this)">`).join('')}
-          </div>
-          <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-            <img id="lightbox-img" src="" alt="">
+        : `<div class="photo-grid-wrap"><div class="photo-grid">
+            ${photos.map((p, i) => `<img src="${photoThumbUrl(p.id)}" data-full="${photoFullUrl(p.id)}" data-idx="${i}" alt="${p.originalFileName}" loading="lazy" onclick="openLightbox(${i})">`).join('')}
+          </div></div>
+          <div class="lightbox" id="lightbox">
+            <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+            <button class="lightbox-nav lightbox-prev" onclick="event.stopPropagation();navLightbox(-1)">&larr;</button>
+            <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()">
+            <button class="lightbox-nav lightbox-next" onclick="event.stopPropagation();navLightbox(1)">&rarr;</button>
           </div>`
       }
     </section>`;
 
   const extra = `<script>
-    function openLightbox(el) {
-      document.getElementById('lightbox-img').src = el.dataset.full;
+    var lbIdx = 0;
+    var lbImgs = document.querySelectorAll('.photo-grid img');
+    function openLightbox(idx) {
+      lbIdx = idx;
+      document.getElementById('lightbox-img').src = lbImgs[idx].dataset.full;
       document.getElementById('lightbox').classList.add('open');
     }
     function closeLightbox() {
       document.getElementById('lightbox').classList.remove('open');
       document.getElementById('lightbox-img').src = '';
     }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+    function navLightbox(dir) {
+      lbIdx = (lbIdx + dir + lbImgs.length) % lbImgs.length;
+      document.getElementById('lightbox-img').src = lbImgs[lbIdx].dataset.full;
+    }
+    document.getElementById('lightbox').addEventListener('click', function(e) { if (e.target === this) closeLightbox(); });
+    document.addEventListener('keydown', function(e) {
+      if (!document.getElementById('lightbox').classList.contains('open')) return;
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowLeft') navLightbox(-1);
+      else if (e.key === 'ArrowRight') navLightbox(1);
+    });
   </script>`;
 
   // Inject lightbox script before closing body
