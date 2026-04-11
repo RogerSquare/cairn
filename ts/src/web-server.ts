@@ -81,12 +81,15 @@ function layout(title: string, nav: string, content: string, showHero = false, m
       --text: #bbb;
       --text-strong: #ddd;
       --text-deep: #fff;
-      --text-muted: #666;
+      --text-muted: #888;
       --border: rgba(136, 136, 136, 0.15);
       --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: 'DM Mono', 'Fira Code', monospace;
     }
     html { scroll-behavior: smooth; }
+    .skip-link { position: absolute; top: -100px; left: 16px; background: var(--accent); color: #000; padding: 8px 16px; border-radius: 4px; z-index: 9999; font-size: 14px; text-decoration: none; }
+    .skip-link:focus { top: 16px; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     body {
       font-family: var(--font);
       background: var(--bg);
@@ -247,9 +250,10 @@ function layout(title: string, nav: string, content: string, showHero = false, m
   </style>
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Skip to content</a>
   <div class="bg-canvas-wrap"><canvas id="bg-canvas"></canvas></div>
   <div class="terminal-hint si si1">try it in your terminal &mdash; <code>ssh r-that.com</code></div>
-  <main>
+  <main id="main-content">
     <header class="si si2">
       <div class="header-top">
       <div class="logo"><a href="/" aria-label="Home">
@@ -702,12 +706,12 @@ app.get('/blog/:slug', (req, res) => {
   }
 
   const content = `
-    <section class="si si3" style="padding-top:48px">
+    <article class="si si3" style="padding-top:48px">
 
       <div class="page-title">${esc(post.title)}</div>
       <div class="post-meta" style="margin-top:-24px;margin-bottom:32px">${post.date}${post.tags.length > 0 ? ' &mdash; ' + post.tags.map(t => `<a href="/blog?tag=${t}" style="border-bottom:none">#${t}</a>`).join(' ') : ''}</div>
       <div class="prose">${post.html}</div>
-    </section>`;
+    </article>`;
 
   res.send(layout(`${esc(post.title)} - ${contact.name}`, navLinks('blog'), content, false, { description: post.description || post.title, path: `/blog/${post.slug}` }));
 });
@@ -758,10 +762,10 @@ app.get('/photos', async (_req, res) => {
 
   const extra = `
   <div class="lightbox" id="lightbox">
-    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
-    <button class="lightbox-nav lightbox-prev" onclick="navLightbox(-1)">&lsaquo;</button>
-    <img id="lightbox-img" src="" alt="">
-    <button class="lightbox-nav lightbox-next" onclick="navLightbox(1)">&rsaquo;</button>
+    <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close lightbox">&times;</button>
+    <button class="lightbox-nav lightbox-prev" onclick="navLightbox(-1)" aria-label="Previous photo">&lsaquo;</button>
+    <img id="lightbox-img" src="" alt="Photo preview">
+    <button class="lightbox-nav lightbox-next" onclick="navLightbox(1)" aria-label="Next photo">&rsaquo;</button>
     <div class="lightbox-counter" id="lightbox-counter"></div>
   </div>
   <script>
@@ -840,7 +844,7 @@ function adminLayout(title: string, body: string): string {
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    :root { --bg: #050505; --surface: #0e0e0e; --border: rgba(136,136,136,0.15); --text: #bbb; --text-strong: #ddd; --text-muted: #666; --accent: #fdb32a; --mono: 'DM Mono','Fira Code',monospace; --font: 'Inter',sans-serif; }
+    :root { --bg: #050505; --surface: #0e0e0e; --border: rgba(136,136,136,0.15); --text: #bbb; --text-strong: #ddd; --text-muted: #888; --accent: #fdb32a; --mono: 'DM Mono','Fira Code',monospace; --font: 'Inter',sans-serif; }
     body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; }
     .admin { max-width: 740px; margin: 0 auto; padding: 32px 24px; }
     h1 { font-size: 1.3rem; color: var(--text-strong); margin-bottom: 24px; font-weight: 600; }
@@ -1098,9 +1102,9 @@ app.get('/admin/contact', requireAdmin, (_req, res) => {
     <form method="POST" action="/admin/contact">${csrfField()}
       <label>Name</label><input type="text" name="name" value="${esc(c.name)}">
       <label>Title</label><input type="text" name="title" value="${esc(c.title)}">
-      <label>Email</label><input type="text" name="email" value="${esc(c.email)}">
-      <label>GitHub</label><input type="text" name="github" value="${esc(c.github)}">
-      <label>Website</label><input type="text" name="website" value="${esc(c.website)}">
+      <label>Email</label><input type="email" name="email" value="${esc(c.email)}">
+      <label>GitHub</label><input type="url" name="github" value="${esc(c.github)}">
+      <label>Website</label><input type="url" name="website" value="${esc(c.website)}">
       <label>Location</label><input type="text" name="location" value="${esc(c.location)}">
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
     </form>
@@ -1214,7 +1218,7 @@ app.get('/admin/projects/new', requireAdmin, (_req, res) => {
       <label>Name</label><input type="text" name="name" required>
       <label>Description</label><textarea name="desc" rows="3"></textarea>
       <label>Tech (comma separated)</label><input type="text" name="tech">
-      <label>Link</label><input type="text" name="link">
+      <label>Link</label><input type="url" name="link">
       <div class="form-actions"><button type="submit" class="btn btn-primary">Add</button></div>
     </form>
   `));
@@ -1239,7 +1243,7 @@ app.get('/admin/projects/edit/:idx', requireAdmin, (req, res) => {
       <label>Name</label><input type="text" name="name" value="${esc(p.name)}" required>
       <label>Description</label><textarea name="desc" rows="3">${esc(p.desc)}</textarea>
       <label>Tech (comma separated)</label><input type="text" name="tech" value="${esc(p.tech.join(', '))}">
-      <label>Link</label><input type="text" name="link" value="${esc(p.link)}">
+      <label>Link</label><input type="url" name="link" value="${esc(p.link)}">
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
     </form>
   `));
