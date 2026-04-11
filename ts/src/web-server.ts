@@ -21,7 +21,7 @@ function b(req: express.Request, field: string): string {
 }
 
 // Shared layout wrapper
-function layout(title: string, nav: string, content: string): string {
+function layout(title: string, nav: string, content: string, showHero = false): string {
   const contact = getContact();
   return `<!DOCTYPE html>
 <html lang="en">
@@ -209,11 +209,11 @@ function layout(title: string, nav: string, content: string): string {
       </a></div>
       <nav>${nav}</nav>
       </div>
-      <div class="header-info">
+      ${showHero ? `<div class="header-info">
       <div class="name"><a href="/">${contact.name}</a></div>
       <div class="title">${contact.title}</div>
       <div class="location">${contact.location}</div>
-      </div>
+      </div>` : ''}
     </header>
     ${content}
   </main>
@@ -478,7 +478,7 @@ app.get('/', (_req, res) => {
       <div class="contact-item"><span class="label">location</span> <span style="opacity:0.7">${contact.location}</span></div>
     </section>`;
 
-  res.send(layout(contact.name, navLinks(''), content));
+  res.send(layout(contact.name, navLinks(''), content, true));
 });
 
 // ---- PROJECTS ----
