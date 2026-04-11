@@ -107,9 +107,23 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
         stdout.getWindowSize = () => [stdout.columns, stdout.rows];
 
         // Pipe stdout to the SSH channel
+        // Convert \n to \r\n but skip inside ANSI escape sequences
         stdout.on('data', (chunk: Buffer) => {
           if (!channel.writable) return;
-          channel.write(chunk);
+          const str = chunk.toString('binary');
+          // Split on escape sequences, only convert \n in non-escape parts
+          const parts = str.split(/(\x1b\[[^a-zA-Z]*[a-zA-Z])/);
+          let out = '';
+          for (let i = 0; i < parts.length; i++) {
+            if (i % 2 === 0) {
+              // Text content -- convert bare \n to \r\n
+              out += parts[i].replace(/(?<!\r)\n/g, '\r\n');
+            } else {
+              // ANSI escape sequence -- pass through unchanged
+              out += parts[i];
+            }
+          }
+          channel.write(Buffer.from(out, 'binary'));
         });
 
         // Create readable stream for input
