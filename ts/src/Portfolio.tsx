@@ -29,19 +29,45 @@ export default function Portfolio() {
   const [chatMessages, setChatMessages] = useState<{ from: string; text: string }[]>([]);
   const [robotState, setRobotState] = useState<RobotState>('idle');
   const [idleTicks, setIdleTicks] = useState(0);
+  const [typingText, setTypingText] = useState('');
+  const [typingIdx, setTypingIdx] = useState(0);
+  const [isTyping, setIsTyping] = useState(false);
   const hasGreeted = useRef(false);
   const { exit } = useApp();
 
   const handleLoadDone = useCallback(() => setLoading(false), []);
+
+  // Start typing a bot message
+  function startTyping(text: string) {
+    setTypingText(text);
+    setTypingIdx(0);
+    setIsTyping(true);
+  }
+
+  // Typing animation tick
+  useEffect(() => {
+    if (!isTyping) return;
+    if (typingIdx >= typingText.length) {
+      // Done typing -- commit full message
+      setChatMessages(prev => [...prev.slice(-4), { from: 'bot', text: typingText }]);
+      setIsTyping(false);
+      setTypingText('');
+      setTypingIdx(0);
+      setRobotState('idle');
+      return;
+    }
+    // Alternate talk frames while typing
+    setRobotState(typingIdx % 6 < 3 ? 'talk1' : 'talk2');
+    const timer = setTimeout(() => setTypingIdx(prev => prev + 1), 35 + Math.random() * 20);
+    return () => clearTimeout(timer);
+  }, [isTyping, typingIdx, typingText]);
 
   // Greeting on first load
   useEffect(() => {
     if (loading || hasGreeted.current) return;
     hasGreeted.current = true;
     const g = randomGreeting();
-    setChatMessages([{ from: 'bot', text: g }]);
-    setRobotState('talk1');
-    setTimeout(() => setRobotState('idle'), 600);
+    startTyping(g);
   }, [loading]);
 
   // Blink
@@ -60,11 +86,9 @@ export default function Portfolio() {
     if (chatMode) return;
     const timer = setInterval(() => {
       setIdleTicks(prev => {
-        if (prev > 0 && prev % 4 === 0) {
+        if (prev > 0 && prev % 4 === 0 && !isTyping) {
           const quip = randomIdleQuip();
-          setChatMessages(m => [...m.slice(-4), { from: 'bot', text: quip }]);
-          setRobotState('talk1');
-          setTimeout(() => setRobotState('idle'), 400);
+          startTyping(quip);
         }
         return prev + 1;
       });
@@ -82,10 +106,7 @@ export default function Portfolio() {
 
     setTimeout(() => {
       const response = getResponse(msg);
-      setChatMessages(prev => [...prev.slice(-4), { from: 'bot', text: response }]);
-      setRobotState('talk1');
-      setTimeout(() => setRobotState('talk2'), 150);
-      setTimeout(() => setRobotState('idle'), 500);
+      startTyping(response);
     }, 300 + Math.random() * 300);
   }
 
@@ -146,9 +167,12 @@ export default function Portfolio() {
                 );
               })}
             </Box>
-            {lastBotMsg && (
+            {(isTyping || lastBotMsg) && (
               <Box width={28} marginTop={0}>
-                <Text color="#444" wrap="wrap">{lastBotMsg.text}</Text>
+                <Text color="#444" wrap="wrap">
+                  {isTyping ? typingText.slice(0, typingIdx) : lastBotMsg?.text}
+                  {isTyping && <Text color="#555">█</Text>}
+                </Text>
               </Box>
             )}
           </Box>
