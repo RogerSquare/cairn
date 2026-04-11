@@ -164,18 +164,14 @@ export default function Portfolio() {
         <Text color="#222">{new Date().toLocaleTimeString('en-US', { hour12: false })}</Text>
       </Box>
 
-      {/* Chat input bar -- always visible */}
-      <Box marginTop={0}>
-        <Text color={chatMode ? '#666' : '#333'}>{chatMode ? '> ' : '/ '}</Text>
-        {chatMode ? (
-          <Text>
-            <Text color="#999">{chatInput}</Text>
-            <Text color="#555">█</Text>
-          </Text>
-        ) : (
-          <Text color="#333">press / to chat with IC-Mini</Text>
-        )}
-      </Box>
+      {/* Chat input bar -- only visible in chat mode */}
+      {chatMode && (
+        <Box marginTop={0}>
+          <Text color="#666">{'> '}</Text>
+          <Text color="#999">{chatInput}</Text>
+          <Text color="#555">█</Text>
+        </Box>
+      )}
     </Box>
   );
 }
