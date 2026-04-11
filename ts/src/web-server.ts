@@ -43,14 +43,31 @@ function esc(str: string): string {
 }
 
 // Shared layout wrapper
-function layout(title: string, nav: string, content: string, showHero = false): string {
+interface PageMeta { description?: string; path?: string; }
+
+function layout(title: string, nav: string, content: string, showHero = false, meta: PageMeta = {}): string {
   const contact = getContact();
+  const about = getAbout();
+  const desc = esc(meta.description || about.slice(0, 155));
+  const url = `https://r-that.com${meta.path || ''}`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
+  <meta name="description" content="${desc}">
+  <meta name="author" content="${esc(contact.name)}">
+  <meta property="og:title" content="${esc(title)}">
+  <meta property="og:description" content="${desc}">
+  <meta property="og:url" content="${url}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="${esc(contact.name)}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="${esc(title)}">
+  <meta name="twitter:description" content="${desc}">
+  <link rel="canonical" href="${url}">
+  ${showHero ? `<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"${esc(contact.name)}","jobTitle":"${esc(contact.title)}","url":"https://r-that.com","email":"${esc(contact.email)}","address":{"@type":"PostalAddress","addressLocality":"${esc(contact.location)}"},"sameAs":["https://${esc(contact.github)}","https://${esc(contact.website)}"]}</script>` : ''}
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -513,7 +530,7 @@ app.get('/', (_req, res) => {
       <div class="contact-item"><span class="label">location</span> <span style="opacity:0.7">${contact.location}</span></div>
     </section>`;
 
-  res.send(layout(contact.name, navLinks(''), content, true));
+  res.send(layout(contact.name, navLinks(''), content, true, { path: '/' }));
 });
 
 // ---- PROJECTS ----
@@ -533,7 +550,7 @@ app.get('/projects', (_req, res) => {
       `).join('')}
     </section>`;
 
-  res.send(layout(`Projects - ${contact.name}`, navLinks('projects'), content));
+  res.send(layout(`Projects - ${contact.name}`, navLinks('projects'), content, false, { description: 'Projects built by ' + contact.name, path: '/projects' }));
 });
 
 // ---- EXPERIENCE ----
@@ -553,7 +570,7 @@ app.get('/experience', (_req, res) => {
       `).join('')}
     </section>`;
 
-  res.send(layout(`Experience - ${contact.name}`, navLinks('experience'), content));
+  res.send(layout(`Experience - ${contact.name}`, navLinks('experience'), content, false, { description: 'Work experience and career history of ' + contact.name, path: '/experience' }));
 });
 
 // ---- BLOG ----
@@ -627,7 +644,7 @@ app.get('/blog', (req, res) => {
       }
     </section>`;
 
-  res.send(layout(`Blog - ${contact.name}`, navLinks('blog'), content));
+  res.send(layout(`Blog - ${contact.name}`, navLinks('blog'), content, false, { description: 'Blog posts about software development, terminal UI, and engineering', path: '/blog' }));
 });
 
 app.get('/blog/:slug', (req, res) => {
@@ -647,7 +664,7 @@ app.get('/blog/:slug', (req, res) => {
       <div class="prose">${post.html}</div>
     </section>`;
 
-  res.send(layout(`${post.title} - ${contact.name}`, navLinks('blog'), content));
+  res.send(layout(`${esc(post.title)} - ${contact.name}`, navLinks('blog'), content, false, { description: post.description || post.title, path: `/blog/${post.slug}` }));
 });
 
 // ---- PHOTO PROXY (hides Immich API key from client) ----
@@ -763,7 +780,7 @@ app.get('/photos', async (_req, res) => {
   </script>`;
 
   // Inject lightbox script before closing body
-  const page = layout(`Photos - ${contact.name}`, navLinks('photos'), content);
+  const page = layout(`Photos - ${contact.name}`, navLinks('photos'), content, false, { description: 'Photo gallery', path: '/photos' });
   res.send(page.replace('</body>', extra + '</body>'));
 });
 
