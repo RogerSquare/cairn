@@ -20,6 +20,11 @@ function b(req: express.Request, field: string): string {
   return typeof val === 'string' ? val : Array.isArray(val) ? val[0] || '' : '';
 }
 
+// HTML escape to prevent XSS
+function esc(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // Shared layout wrapper
 function layout(title: string, nav: string, content: string, showHero = false): string {
   const contact = getContact();
@@ -541,6 +546,9 @@ import { fileURLToPath } from 'url';
 import matter from 'gray-matter';
 import { marked } from 'marked';
 
+// Disable raw HTML in markdown to prevent XSS
+marked.use({ renderer: { html: () => '', } });
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const POSTS_DIR = join(__dirname, '..', 'posts');
 
@@ -588,12 +596,12 @@ app.get('/blog', (req, res) => {
   const content = `
     <section class="si si3" style="padding-top:48px">
 
-      <div class="page-title">blog${tag ? ` <span style="font-weight:400;font-size:0.9rem;color:var(--text-muted)">tagged: ${tag}</span>` : ''}</div>
+      <div class="page-title">blog${tag ? ` <span style="font-weight:400;font-size:0.9rem;color:var(--text-muted)">tagged: ${esc(tag)}</span>` : ''}</div>
       ${posts.length === 0
         ? '<p style="color:var(--text-muted);opacity:0.5">no posts yet.</p>'
         : posts.map((p, i) => `
           <div class="post-item si si${Math.min(i + 4, 12)}">
-            <a href="/blog/${p.slug}" class="post-title">${p.title}</a>
+            <a href="/blog/${esc(p.slug)}" class="post-title">${esc(p.title)}</a>
             <div class="post-meta">${p.date}</div>
             ${p.description ? `<div class="post-excerpt">${p.description}</div>` : ''}
             ${p.tags.length > 0 ? `<div class="post-tags">${p.tags.map(t => `<a href="/blog?tag=${t}">#${t}</a>`).join('')}</div>` : ''}
@@ -617,7 +625,7 @@ app.get('/blog/:slug', (req, res) => {
   const content = `
     <section class="si si3" style="padding-top:48px">
 
-      <div class="page-title">${post.title}</div>
+      <div class="page-title">${esc(post.title)}</div>
       <div class="post-meta" style="margin-top:-24px;margin-bottom:32px">${post.date}${post.tags.length > 0 ? ' &mdash; ' + post.tags.map(t => `<a href="/blog?tag=${t}" style="border-bottom:none">#${t}</a>`).join(' ') : ''}</div>
       <div class="prose">${post.html}</div>
     </section>`;
@@ -894,7 +902,7 @@ app.get('/admin/about', requireAdmin, (_req, res) => {
     <h2>About</h2>
     <form method="POST" action="/admin/about">
       <label>About text</label>
-      <textarea name="about" rows="8">${data.about}</textarea>
+      <textarea name="about" rows="8">${esc(data.about)}</textarea>
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
     </form>
   `));
@@ -914,12 +922,12 @@ app.get('/admin/contact', requireAdmin, (_req, res) => {
   res.send(adminLayout('Edit Contact', adminNav('contact') + `
     <h2>Contact Info</h2>
     <form method="POST" action="/admin/contact">
-      <label>Name</label><input type="text" name="name" value="${c.name}">
-      <label>Title</label><input type="text" name="title" value="${c.title}">
-      <label>Email</label><input type="text" name="email" value="${c.email}">
-      <label>GitHub</label><input type="text" name="github" value="${c.github}">
-      <label>Website</label><input type="text" name="website" value="${c.website}">
-      <label>Location</label><input type="text" name="location" value="${c.location}">
+      <label>Name</label><input type="text" name="name" value="${esc(c.name)}">
+      <label>Title</label><input type="text" name="title" value="${esc(c.title)}">
+      <label>Email</label><input type="text" name="email" value="${esc(c.email)}">
+      <label>GitHub</label><input type="text" name="github" value="${esc(c.github)}">
+      <label>Website</label><input type="text" name="website" value="${esc(c.website)}">
+      <label>Location</label><input type="text" name="location" value="${esc(c.location)}">
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
     </form>
   `));
@@ -938,13 +946,13 @@ app.get('/admin/skills', requireAdmin, (_req, res) => {
   const skillsHtml = data.skills.map((s: any, i: number) => `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>${s.name}</strong>
+        <strong>${esc(s.name)}</strong>
         <div style="display:flex;gap:8px">
           <a href="/admin/skills/edit/${i}" class="btn">edit</a>
           <form method="POST" action="/admin/skills/delete/${i}" style="display:inline"><button type="submit" class="btn btn-danger" onclick="return confirm('Delete?')">delete</button></form>
         </div>
       </div>
-      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${s.items.join(', ')}</div>
+      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${s.items.map(esc).join(', ')}</div>
     </div>
   `).join('');
 
@@ -983,8 +991,8 @@ app.get('/admin/skills/edit/:idx', requireAdmin, (req, res) => {
     <a href="/admin/skills" style="font-size:13px;opacity:0.5">&larr; back</a>
     <h2>Edit: ${s.name}</h2>
     <form method="POST" action="/admin/skills/edit/${req.params.idx}">
-      <label>Category Name</label><input type="text" name="name" value="${s.name}" required>
-      <label>Skills (comma separated)</label><input type="text" name="items" value="${s.items.join(', ')}" required>
+      <label>Category Name</label><input type="text" name="name" value="${esc(s.name)}" required>
+      <label>Skills (comma separated)</label><input type="text" name="items" value="${esc(s.items.join(', '))}" required>
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
     </form>
   `));
@@ -1004,13 +1012,13 @@ app.get('/admin/projects', requireAdmin, (_req, res) => {
   const projectsHtml = data.projects.map((p: any, i: number) => `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>${p.name}</strong>
+        <strong>${esc(p.name)}</strong>
         <div style="display:flex;gap:8px">
           <a href="/admin/projects/edit/${i}" class="btn">edit</a>
           <form method="POST" action="/admin/projects/delete/${i}" style="display:inline"><button type="submit" class="btn btn-danger" onclick="return confirm('Delete?')">delete</button></form>
         </div>
       </div>
-      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${p.desc}</div>
+      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${esc(p.desc)}</div>
     </div>
   `).join('');
 
@@ -1049,10 +1057,10 @@ app.get('/admin/projects/edit/:idx', requireAdmin, (req, res) => {
     <a href="/admin/projects" style="font-size:13px;opacity:0.5">&larr; back</a>
     <h2>Edit: ${p.name}</h2>
     <form method="POST" action="/admin/projects/edit/${req.params.idx}">
-      <label>Name</label><input type="text" name="name" value="${p.name}" required>
-      <label>Description</label><textarea name="desc" rows="3">${p.desc}</textarea>
-      <label>Tech (comma separated)</label><input type="text" name="tech" value="${p.tech.join(', ')}">
-      <label>Link</label><input type="text" name="link" value="${p.link}">
+      <label>Name</label><input type="text" name="name" value="${esc(p.name)}" required>
+      <label>Description</label><textarea name="desc" rows="3">${esc(p.desc)}</textarea>
+      <label>Tech (comma separated)</label><input type="text" name="tech" value="${esc(p.tech.join(', '))}">
+      <label>Link</label><input type="text" name="link" value="${esc(p.link)}">
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
     </form>
   `));
@@ -1079,13 +1087,13 @@ app.get('/admin/experience', requireAdmin, (_req, res) => {
   const expHtml = data.experience.map((e: any, i: number) => `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>${e.role}</strong> <span style="color:var(--text-muted);font-size:13px">${e.period}</span>
+        <strong>${esc(e.role)}</strong> <span style="color:var(--text-muted);font-size:13px">${esc(e.period)}</span>
         <div style="display:flex;gap:8px">
           <a href="/admin/experience/edit/${i}" class="btn">edit</a>
           <form method="POST" action="/admin/experience/delete/${i}" style="display:inline"><button type="submit" class="btn btn-danger" onclick="return confirm('Delete?')">delete</button></form>
         </div>
       </div>
-      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${e.company}</div>
+      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${esc(e.company)}</div>
     </div>
   `).join('');
 
@@ -1124,10 +1132,10 @@ app.get('/admin/experience/edit/:idx', requireAdmin, (req, res) => {
     <a href="/admin/experience" style="font-size:13px;opacity:0.5">&larr; back</a>
     <h2>Edit: ${e.role}</h2>
     <form method="POST" action="/admin/experience/edit/${req.params.idx}">
-      <label>Role</label><input type="text" name="role" value="${e.role}" required>
-      <label>Company</label><input type="text" name="company" value="${e.company}" required>
-      <label>Period</label><input type="text" name="period" value="${e.period}" required>
-      <label>Descriptions (one per line)</label><textarea name="desc" rows="5">${e.desc.join('\n')}</textarea>
+      <label>Role</label><input type="text" name="role" value="${esc(e.role)}" required>
+      <label>Company</label><input type="text" name="company" value="${esc(e.company)}" required>
+      <label>Period</label><input type="text" name="period" value="${esc(e.period)}" required>
+      <label>Descriptions (one per line)</label><textarea name="desc" rows="5">${esc(e.desc.join('\n'))}</textarea>
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
     </form>
   `));
@@ -1159,7 +1167,7 @@ app.get('/admin', requireAdmin, (_req, res) => {
     ${posts.length === 0 ? '<p style="color:var(--text-muted)">no posts yet</p>' : posts.map((p: any) => `
       <div class="post-row">
         <div class="post-info">
-          <div class="title">${p.title}</div>
+          <div class="title">${esc(p.title)}</div>
           <div class="meta">${p.date} &mdash; ${p.slug}.md</div>
         </div>
         <div class="actions">
