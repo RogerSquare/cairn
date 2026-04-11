@@ -185,15 +185,17 @@ function layout(title: string, nav: string, content: string, showHero = false): 
     @media (min-width: 900px) { .photo-grid { grid-template-columns: repeat(4, 1fr); } }
     .photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 3px; cursor: pointer; opacity: 0.8; transition: opacity 0.2s, transform 0.2s; }
     .photo-grid img:hover { opacity: 1; transform: scale(1.02); }
-    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; align-items: center; justify-content: center; cursor: pointer; }
-    .lightbox.open { display: flex; }
-    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 4px; }
-    .lightbox-nav { position: fixed; top: 50%; transform: translateY(-50%); font-size: 28px; color: rgba(255,255,255,0.4); cursor: pointer; padding: 16px; z-index: 101; transition: color 0.2s; border: none; background: none; }
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.25s; }
+    .lightbox.open { display: flex; opacity: 1; }
+    .lightbox img { max-width: 85vw; max-height: 85vh; border-radius: 4px; cursor: default; transition: opacity 0.2s; }
+    .lightbox img.loading { opacity: 0.3; }
+    .lightbox-nav { position: fixed; top: 50%; transform: translateY(-50%); font-size: 32px; color: rgba(255,255,255,0.3); cursor: pointer; padding: 20px; z-index: 1001; transition: color 0.2s; border: none; background: none; user-select: none; }
     .lightbox-nav:hover { color: rgba(255,255,255,0.8); }
-    .lightbox-prev { left: 12px; }
-    .lightbox-next { right: 12px; }
-    .lightbox-close { position: fixed; top: 16px; right: 20px; font-size: 24px; color: rgba(255,255,255,0.4); cursor: pointer; z-index: 101; border: none; background: none; transition: color 0.2s; }
+    .lightbox-prev { left: 8px; }
+    .lightbox-next { right: 8px; }
+    .lightbox-close { position: fixed; top: 12px; right: 16px; font-size: 28px; color: rgba(255,255,255,0.3); cursor: pointer; z-index: 1001; border: none; background: none; transition: color 0.2s; }
     .lightbox-close:hover { color: rgba(255,255,255,0.8); }
+    .lightbox-counter { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 13px; color: rgba(255,255,255,0.4); font-family: var(--mono); z-index: 1001; }
     @media (max-width: 640px) {
       main { padding: 0 20px; }
       .header-top { padding: 20px 0; }
@@ -400,11 +402,11 @@ async function fetchPhotos(): Promise<PhotoAsset[]> {
 }
 
 function photoThumbUrl(id: string): string {
-  return `${IMMICH_URL}/api/assets/${id}/thumbnail?key=${IMMICH_SHARE_KEY}&size=preview`;
+  return `${IMMICH_URL}/api/assets/${id}/thumbnail?key=${IMMICH_SHARE_KEY}&size=thumbnail`;
 }
 
 function photoFullUrl(id: string): string {
-  return `${IMMICH_URL}/api/assets/${id}/original?key=${IMMICH_SHARE_KEY}`;
+  return `${IMMICH_URL}/api/assets/${id}/thumbnail?key=${IMMICH_SHARE_KEY}&size=preview`;
 }
 
 function navLinks(active: string): string {
@@ -626,13 +628,14 @@ app.get('/photos', async (_req, res) => {
       ${photos.length === 0
         ? '<p style="color:var(--text-muted);opacity:0.5">no photos available.</p>'
         : `<div class="photo-grid-wrap"><div class="photo-grid">
-            ${photos.map((p, i) => `<img src="${photoThumbUrl(p.id)}" data-full="${photoFullUrl(p.id)}" data-idx="${i}" alt="${p.originalFileName}" loading="lazy" onclick="openLightbox(${i})">`).join('')}
+            ${photos.map((p, i) => `<img src="${photoThumbUrl(p.id)}" data-full="${photoFullUrl(p.id)}" alt="${p.originalFileName}" loading="lazy" onclick="openLightbox(${i})">`).join('')}
           </div></div>
           <div class="lightbox" id="lightbox">
             <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
-            <button class="lightbox-nav lightbox-prev" onclick="event.stopPropagation();navLightbox(-1)">&larr;</button>
-            <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()">
-            <button class="lightbox-nav lightbox-next" onclick="event.stopPropagation();navLightbox(1)">&rarr;</button>
+            <button class="lightbox-nav lightbox-prev" onclick="navLightbox(-1)">&lsaquo;</button>
+            <img id="lightbox-img" src="" alt="">
+            <button class="lightbox-nav lightbox-next" onclick="navLightbox(1)">&rsaquo;</button>
+            <div class="lightbox-counter" id="lightbox-counter"></div>
           </div>`
       }
     </section>`;
@@ -640,26 +643,61 @@ app.get('/photos', async (_req, res) => {
   const extra = `<script>
     var lbIdx = 0;
     var lbImgs = document.querySelectorAll('.photo-grid img');
-    function openLightbox(idx) {
+    var lbEl = document.getElementById('lightbox');
+    var lbImg = document.getElementById('lightbox-img');
+    var lbCounter = document.getElementById('lightbox-counter');
+    var lbTotal = lbImgs.length;
+
+    function showImage(idx) {
       lbIdx = idx;
-      document.getElementById('lightbox-img').src = lbImgs[idx].dataset.full;
-      document.getElementById('lightbox').classList.add('open');
+      lbImg.classList.add('loading');
+      var img = new Image();
+      img.onload = function() { lbImg.src = img.src; lbImg.classList.remove('loading'); };
+      img.src = lbImgs[idx].dataset.full;
+      lbCounter.textContent = (idx + 1) + ' / ' + lbTotal;
+      // Preload neighbors
+      if (lbImgs[(idx+1) % lbTotal]) new Image().src = lbImgs[(idx+1) % lbTotal].dataset.full;
+      if (lbImgs[(idx-1+lbTotal) % lbTotal]) new Image().src = lbImgs[(idx-1+lbTotal) % lbTotal].dataset.full;
     }
+
+    function openLightbox(idx) {
+      showImage(idx);
+      lbEl.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
     function closeLightbox() {
-      document.getElementById('lightbox').classList.remove('open');
-      document.getElementById('lightbox-img').src = '';
+      lbEl.classList.remove('open');
+      document.body.style.overflow = '';
+      lbImg.src = '';
     }
+
     function navLightbox(dir) {
-      lbIdx = (lbIdx + dir + lbImgs.length) % lbImgs.length;
-      document.getElementById('lightbox-img').src = lbImgs[lbIdx].dataset.full;
+      showImage((lbIdx + dir + lbTotal) % lbTotal);
     }
-    document.getElementById('lightbox').addEventListener('click', function(e) { if (e.target === this) closeLightbox(); });
+
+    // Click backdrop to close (not image or nav buttons)
+    if (lbEl) lbEl.addEventListener('click', function(e) {
+      if (e.target === lbEl) closeLightbox();
+    });
+
+    // Keyboard
     document.addEventListener('keydown', function(e) {
-      if (!document.getElementById('lightbox').classList.contains('open')) return;
+      if (!lbEl || !lbEl.classList.contains('open')) return;
       if (e.key === 'Escape') closeLightbox();
       else if (e.key === 'ArrowLeft') navLightbox(-1);
       else if (e.key === 'ArrowRight') navLightbox(1);
     });
+
+    // Touch swipe
+    var touchStartX = 0;
+    if (lbEl) {
+      lbEl.addEventListener('touchstart', function(e) { touchStartX = e.touches[0].clientX; }, {passive: true});
+      lbEl.addEventListener('touchend', function(e) {
+        var diff = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(diff) > 50) navLightbox(diff > 0 ? -1 : 1);
+      });
+    }
   </script>`;
 
   // Inject lightbox script before closing body
