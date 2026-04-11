@@ -2,7 +2,7 @@
 // Usage: npm run web (listens on port 3000)
 
 import express from 'express';
-import { contact, aboutWeb as about, skills, projects, experience } from './data.js';
+import { getContact, getAbout, getSkills, getProjects, getExperience, getData, saveData, DATA_PATH } from './data.js';
 
 const app = express();
 const PORT = parseInt(process.env.WEB_PORT || '3000', 10);
@@ -14,8 +14,15 @@ const PHOTO_CACHE_TTL = 10 * 60 * 1000; // 10 min
 
 app.use(express.urlencoded({ extended: true }));
 
+// Helper to get body field as string
+function b(req: express.Request, field: string): string {
+  const val = req.body[field];
+  return typeof val === 'string' ? val : Array.isArray(val) ? val[0] || '' : '';
+}
+
 // Shared layout wrapper
 function layout(title: string, nav: string, content: string): string {
+  const contact = getContact();
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -385,6 +392,7 @@ function photoFullUrl(id: string): string {
 }
 
 function navLinks(active: string): string {
+  const contact = getContact();
   const links = [
     { href: '/projects', label: 'projects' },
     { href: '/experience', label: 'experience' },
@@ -397,6 +405,11 @@ function navLinks(active: string): string {
 
 // ---- HOME ----
 app.get('/', (_req, res) => {
+  const contact = getContact();
+  const about = getAbout();
+  const skills = getSkills();
+  const projects = getProjects();
+  const experience = getExperience();
   const content = `
     <section class="si si3">
       <p class="about">${about}</p>
@@ -447,6 +460,8 @@ app.get('/', (_req, res) => {
 
 // ---- PROJECTS ----
 app.get('/projects', (_req, res) => {
+  const contact = getContact();
+  const projects = getProjects();
   const content = `
     <section class="si si3" style="padding-top:48px">
       <a href="/" class="back-link">&larr; home</a>
@@ -465,6 +480,8 @@ app.get('/projects', (_req, res) => {
 
 // ---- EXPERIENCE ----
 app.get('/experience', (_req, res) => {
+  const contact = getContact();
+  const experience = getExperience();
   const content = `
     <section class="si si3" style="padding-top:48px">
       <a href="/" class="back-link">&larr; home</a>
@@ -528,6 +545,7 @@ function loadPosts(tagFilter?: string): Post[] {
 }
 
 app.get('/blog', (req, res) => {
+  const contact = getContact();
   const tag = req.query.tag as string | undefined;
   const posts = loadPosts(tag);
 
@@ -552,6 +570,7 @@ app.get('/blog', (req, res) => {
 });
 
 app.get('/blog/:slug', (req, res) => {
+  const contact = getContact();
   const posts = loadPosts();
   const post = posts.find(p => p.slug === req.params.slug);
   if (!post) {
@@ -572,6 +591,7 @@ app.get('/blog/:slug', (req, res) => {
 
 // ---- PHOTOS ----
 app.get('/photos', async (_req, res) => {
+  const contact = getContact();
   const photos = await fetchPhotos();
   const content = `
     <section class="si si3" style="padding-top:48px">
@@ -692,34 +712,7 @@ app.get('/admin/logout', (_req, res) => {
   res.redirect('/admin/login');
 });
 
-app.get('/admin', requireAdmin, (_req, res) => {
-  const posts = loadPosts();
-  const msg = '';
-  res.send(adminLayout('Blog Admin', `
-    <div class="top-bar">
-      <h1>blog posts</h1>
-      <div class="actions">
-        <a href="/admin/new" class="btn btn-primary">new post</a>
-        <a href="/admin/logout" class="btn">logout</a>
-      </div>
-    </div>
-    ${posts.length === 0 ? '<p style="color:var(--text-muted)">no posts yet</p>' : posts.map(p => `
-      <div class="post-row">
-        <div class="post-info">
-          <div class="title">${p.title}</div>
-          <div class="meta">${p.date} &mdash; ${p.slug}.md</div>
-        </div>
-        <div class="actions">
-          <a href="/blog/${p.slug}" class="btn" target="_blank">view</a>
-          <a href="/admin/edit/${p.slug}" class="btn">edit</a>
-          <form method="POST" action="/admin/delete/${p.slug}" style="display:inline" onsubmit="return confirm('Delete this post?')">
-            <button type="submit" class="btn btn-danger">delete</button>
-          </form>
-        </div>
-      </div>
-    `).join('')}
-  `));
-});
+// Old admin dashboard removed -- new one is below with nav
 
 function postForm(action: string, post: { slug: string; title: string; date: string; tags: string; description: string; content: string }, isNew: boolean): string {
   return `
@@ -754,9 +747,9 @@ app.get('/admin/new', requireAdmin, (_req, res) => {
 });
 
 app.post('/admin/new', requireAdmin, (req, res) => {
-  const { slug, title, date, tags, description, content } = req.body;
+  const slug = b(req,'slug'), title = b(req,'title'), date = b(req,'date'), tags = b(req,'tags'), description = b(req,'description'), content = b(req,'content');
   const safeSlug = slug.replace(/[^a-z0-9-]/g, '');
-  const frontmatter = `---\ntitle: ${title}\ndate: ${date}\ntags: [${(tags || '').split(',').map((t: string) => t.trim()).filter(Boolean).join(', ')}]\ndescription: ${description}\n---\n\n`;
+  const frontmatter = `---\ntitle: ${title}\ndate: ${date}\ntags: [${tags.split(',').map((t: string) => t.trim()).filter(Boolean).join(', ')}]\ndescription: ${description}\n---\n\n`;
   writeFileSync(join(POSTS_DIR, `${safeSlug}.md`), frontmatter + content, 'utf8');
   res.redirect('/admin');
 });
@@ -776,9 +769,9 @@ app.get('/admin/edit/:slug', requireAdmin, (req, res) => {
 });
 
 app.post('/admin/edit/:slug', requireAdmin, (req, res) => {
-  const { title, date, tags, description, content } = req.body;
+  const title = b(req,'title'), date = b(req,'date'), tags = b(req,'tags'), description = b(req,'description'), content = b(req,'content');
   const slug = req.params.slug;
-  const frontmatter = `---\ntitle: ${title}\ndate: ${date}\ntags: [${(tags || '').split(',').map((t: string) => t.trim()).filter(Boolean).join(', ')}]\ndescription: ${description}\n---\n\n`;
+  const frontmatter = `---\ntitle: ${title}\ndate: ${date}\ntags: [${tags.split(',').map((t: string) => t.trim()).filter(Boolean).join(', ')}]\ndescription: ${description}\n---\n\n`;
   writeFileSync(join(POSTS_DIR, `${slug}.md`), frontmatter + content, 'utf8');
   res.redirect('/admin');
 });
@@ -787,6 +780,284 @@ app.post('/admin/delete/:slug', requireAdmin, (req, res) => {
   const filePath = join(POSTS_DIR, `${req.params.slug}.md`);
   if (existsSync(filePath)) unlinkSync(filePath);
   res.redirect('/admin');
+});
+
+// ---- ADMIN: Content Editors ----
+
+// Admin nav helper
+function adminNav(active: string): string {
+  const items = [
+    { href: '/admin', label: 'Posts' },
+    { href: '/admin/about', label: 'About' },
+    { href: '/admin/skills', label: 'Skills' },
+    { href: '/admin/projects', label: 'Projects' },
+    { href: '/admin/experience', label: 'Experience' },
+    { href: '/admin/contact', label: 'Contact' },
+  ];
+  return '<div style="display:flex;gap:12px;margin-bottom:24px;padding-bottom:12px;border-bottom:1px solid var(--border)">' +
+    items.map(i => `<a href="${i.href}" style="font-size:13px;${i.label.toLowerCase() === active ? 'color:var(--text);font-weight:600' : 'color:var(--text-muted)'}">${i.label}</a>`).join('') +
+    '<div style="flex:1"></div><a href="/admin/logout" style="font-size:13px;color:var(--text-muted)">logout</a></div>';
+}
+
+// About editor
+app.get('/admin/about', requireAdmin, (_req, res) => {
+  const data = getData();
+  res.send(adminLayout('Edit About', adminNav('about') + `
+    <h2>About</h2>
+    <form method="POST" action="/admin/about">
+      <label>About text</label>
+      <textarea name="about" rows="8">${data.about}</textarea>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
+    </form>
+  `));
+});
+
+app.post('/admin/about', requireAdmin, (req, res) => {
+  const data = getData();
+  data.about = b(req, 'about');
+  saveData(data);
+  res.redirect('/admin/about');
+});
+
+// Contact editor
+app.get('/admin/contact', requireAdmin, (_req, res) => {
+  const data = getData();
+  const c = data.contact;
+  res.send(adminLayout('Edit Contact', adminNav('contact') + `
+    <h2>Contact Info</h2>
+    <form method="POST" action="/admin/contact">
+      <label>Name</label><input type="text" name="name" value="${c.name}">
+      <label>Title</label><input type="text" name="title" value="${c.title}">
+      <label>Email</label><input type="text" name="email" value="${c.email}">
+      <label>GitHub</label><input type="text" name="github" value="${c.github}">
+      <label>Website</label><input type="text" name="website" value="${c.website}">
+      <label>Location</label><input type="text" name="location" value="${c.location}">
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
+    </form>
+  `));
+});
+
+app.post('/admin/contact', requireAdmin, (req, res) => {
+  const data = getData();
+  data.contact = { name: b(req,'name'), title: b(req,'title'), email: b(req,'email'), github: b(req,'github'), website: b(req,'website'), location: b(req,'location') };
+  saveData(data);
+  res.redirect('/admin/contact');
+});
+
+// Skills editor
+app.get('/admin/skills', requireAdmin, (_req, res) => {
+  const data = getData();
+  const skillsHtml = data.skills.map((s: any, i: number) => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>${s.name}</strong>
+        <form method="POST" action="/admin/skills/delete/${i}" style="display:inline"><button type="submit" class="btn btn-danger" onclick="return confirm('Delete?')">delete</button></form>
+      </div>
+      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${s.items.join(', ')}</div>
+    </div>
+  `).join('');
+
+  res.send(adminLayout('Edit Skills', adminNav('skills') + `
+    <div class="top-bar"><h2>Skills</h2></div>
+    ${skillsHtml}
+    <h2 style="margin-top:24px">Add / Edit Skill Category</h2>
+    <form method="POST" action="/admin/skills">
+      <label>Category Name</label><input type="text" name="name" required>
+      <label>Skills (comma separated)</label><input type="text" name="items" required>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Add</button></div>
+    </form>
+  `));
+});
+
+app.post('/admin/skills', requireAdmin, (req, res) => {
+  const data = getData();
+  const items = b(req,'items').split(',').map((s: string) => s.trim()).filter(Boolean);
+  data.skills.push({ name: b(req,'name'), items });
+  saveData(data);
+  res.redirect('/admin/skills');
+});
+
+app.post('/admin/skills/delete/:idx', requireAdmin, (req, res) => {
+  const data = getData();
+  data.skills.splice(parseInt(req.params.idx as string), 1);
+  saveData(data);
+  res.redirect('/admin/skills');
+});
+
+// Projects editor
+app.get('/admin/projects', requireAdmin, (_req, res) => {
+  const data = getData();
+  const projectsHtml = data.projects.map((p: any, i: number) => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>${p.name}</strong>
+        <div style="display:flex;gap:8px">
+          <a href="/admin/projects/edit/${i}" class="btn">edit</a>
+          <form method="POST" action="/admin/projects/delete/${i}" style="display:inline"><button type="submit" class="btn btn-danger" onclick="return confirm('Delete?')">delete</button></form>
+        </div>
+      </div>
+      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${p.desc}</div>
+    </div>
+  `).join('');
+
+  res.send(adminLayout('Edit Projects', adminNav('projects') + `
+    <div class="top-bar"><h2>Projects</h2><a href="/admin/projects/new" class="btn btn-primary">add project</a></div>
+    ${projectsHtml}
+  `));
+});
+
+app.get('/admin/projects/new', requireAdmin, (_req, res) => {
+  res.send(adminLayout('New Project', adminNav('projects') + `
+    <a href="/admin/projects" style="font-size:13px;opacity:0.5">&larr; back</a>
+    <h2>New Project</h2>
+    <form method="POST" action="/admin/projects/new">
+      <label>Name</label><input type="text" name="name" required>
+      <label>Description</label><textarea name="desc" rows="3"></textarea>
+      <label>Tech (comma separated)</label><input type="text" name="tech">
+      <label>Link</label><input type="text" name="link">
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Add</button></div>
+    </form>
+  `));
+});
+
+app.post('/admin/projects/new', requireAdmin, (req, res) => {
+  const data = getData();
+  data.projects.push({ name: b(req,'name'), desc: b(req,'desc'), tech: b(req,'tech').split(',').map((s: string) => s.trim()).filter(Boolean), link: b(req,'link') });
+  saveData(data);
+  res.redirect('/admin/projects');
+});
+
+app.get('/admin/projects/edit/:idx', requireAdmin, (req, res) => {
+  const data = getData();
+  const p = data.projects[parseInt(req.params.idx as string)];
+  if (!p) { res.redirect('/admin/projects'); return; }
+  res.send(adminLayout('Edit Project', adminNav('projects') + `
+    <a href="/admin/projects" style="font-size:13px;opacity:0.5">&larr; back</a>
+    <h2>Edit: ${p.name}</h2>
+    <form method="POST" action="/admin/projects/edit/${req.params.idx}">
+      <label>Name</label><input type="text" name="name" value="${p.name}" required>
+      <label>Description</label><textarea name="desc" rows="3">${p.desc}</textarea>
+      <label>Tech (comma separated)</label><input type="text" name="tech" value="${p.tech.join(', ')}">
+      <label>Link</label><input type="text" name="link" value="${p.link}">
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
+    </form>
+  `));
+});
+
+app.post('/admin/projects/edit/:idx', requireAdmin, (req, res) => {
+  const data = getData();
+  const i = parseInt(req.params.idx as string);
+  data.projects[i] = { name: b(req,'name'), desc: b(req,'desc'), tech: b(req,'tech').split(',').map((s: string) => s.trim()).filter(Boolean), link: b(req,'link') };
+  saveData(data);
+  res.redirect('/admin/projects');
+});
+
+app.post('/admin/projects/delete/:idx', requireAdmin, (req, res) => {
+  const data = getData();
+  data.projects.splice(parseInt(req.params.idx as string), 1);
+  saveData(data);
+  res.redirect('/admin/projects');
+});
+
+// Experience editor
+app.get('/admin/experience', requireAdmin, (_req, res) => {
+  const data = getData();
+  const expHtml = data.experience.map((e: any, i: number) => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>${e.role}</strong> <span style="color:var(--text-muted);font-size:13px">${e.period}</span>
+        <div style="display:flex;gap:8px">
+          <a href="/admin/experience/edit/${i}" class="btn">edit</a>
+          <form method="POST" action="/admin/experience/delete/${i}" style="display:inline"><button type="submit" class="btn btn-danger" onclick="return confirm('Delete?')">delete</button></form>
+        </div>
+      </div>
+      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${e.company}</div>
+    </div>
+  `).join('');
+
+  res.send(adminLayout('Edit Experience', adminNav('experience') + `
+    <div class="top-bar"><h2>Experience</h2><a href="/admin/experience/new" class="btn btn-primary">add role</a></div>
+    ${expHtml}
+  `));
+});
+
+app.get('/admin/experience/new', requireAdmin, (_req, res) => {
+  res.send(adminLayout('New Role', adminNav('experience') + `
+    <a href="/admin/experience" style="font-size:13px;opacity:0.5">&larr; back</a>
+    <h2>New Role</h2>
+    <form method="POST" action="/admin/experience/new">
+      <label>Role</label><input type="text" name="role" required>
+      <label>Company</label><input type="text" name="company" required>
+      <label>Period</label><input type="text" name="period" required>
+      <label>Descriptions (one per line)</label><textarea name="desc" rows="5"></textarea>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Add</button></div>
+    </form>
+  `));
+});
+
+app.post('/admin/experience/new', requireAdmin, (req, res) => {
+  const data = getData();
+  data.experience.push({ role: b(req,'role'), company: b(req,'company'), period: b(req,'period'), desc: b(req,'desc').split('\n').map((s: string) => s.trim()).filter(Boolean) });
+  saveData(data);
+  res.redirect('/admin/experience');
+});
+
+app.get('/admin/experience/edit/:idx', requireAdmin, (req, res) => {
+  const data = getData();
+  const e = data.experience[parseInt(req.params.idx as string)];
+  if (!e) { res.redirect('/admin/experience'); return; }
+  res.send(adminLayout('Edit Role', adminNav('experience') + `
+    <a href="/admin/experience" style="font-size:13px;opacity:0.5">&larr; back</a>
+    <h2>Edit: ${e.role}</h2>
+    <form method="POST" action="/admin/experience/edit/${req.params.idx}">
+      <label>Role</label><input type="text" name="role" value="${e.role}" required>
+      <label>Company</label><input type="text" name="company" value="${e.company}" required>
+      <label>Period</label><input type="text" name="period" value="${e.period}" required>
+      <label>Descriptions (one per line)</label><textarea name="desc" rows="5">${e.desc.join('\n')}</textarea>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
+    </form>
+  `));
+});
+
+app.post('/admin/experience/edit/:idx', requireAdmin, (req, res) => {
+  const data = getData();
+  const i = parseInt(req.params.idx as string);
+  data.experience[i] = { role: b(req,'role'), company: b(req,'company'), period: b(req,'period'), desc: b(req,'desc').split('\n').map((s: string) => s.trim()).filter(Boolean) };
+  saveData(data);
+  res.redirect('/admin/experience');
+});
+
+app.post('/admin/experience/delete/:idx', requireAdmin, (req, res) => {
+  const data = getData();
+  data.experience.splice(parseInt(req.params.idx as string), 1);
+  saveData(data);
+  res.redirect('/admin/experience');
+});
+
+// Update admin dashboard to show nav
+app.get('/admin', requireAdmin, (_req, res) => {
+  const posts = loadPosts();
+  res.send(adminLayout('Blog Admin', adminNav('posts') + `
+    <div class="top-bar">
+      <h2>blog posts</h2>
+      <div class="actions"><a href="/admin/new" class="btn btn-primary">new post</a></div>
+    </div>
+    ${posts.length === 0 ? '<p style="color:var(--text-muted)">no posts yet</p>' : posts.map((p: any) => `
+      <div class="post-row">
+        <div class="post-info">
+          <div class="title">${p.title}</div>
+          <div class="meta">${p.date} &mdash; ${p.slug}.md</div>
+        </div>
+        <div class="actions">
+          <a href="/blog/${p.slug}" class="btn" target="_blank">view</a>
+          <a href="/admin/edit/${p.slug}" class="btn">edit</a>
+          <form method="POST" action="/admin/delete/${p.slug}" style="display:inline" onsubmit="return confirm('Delete this post?')">
+            <button type="submit" class="btn btn-danger">delete</button>
+          </form>
+        </div>
+      </div>
+    `).join('')}
+  `));
 });
 
 app.listen(PORT, '0.0.0.0', () => {
