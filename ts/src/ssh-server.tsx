@@ -25,6 +25,7 @@ const PORT = parseInt(process.env.SSH_PORT || '2222', 10);
 const HOST_KEY_PATH = join(__dirname, '..', 'host_key');
 const MAX_CONNECTIONS = 20;
 const MAX_PER_IP = 3;
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 let activeConnections = 0;
 const perIpConnections = new Map<string, number>();
@@ -87,6 +88,21 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
       session.on('shell', (accept: any) => {
         const channel = accept();
 
+        // Idle timeout: disconnect if no input for IDLE_TIMEOUT_MS
+        let idleTimer: NodeJS.Timeout | null = null;
+        const resetIdleTimer = () => {
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => {
+            console.log(`[${new Date().toISOString()}] Idle timeout for ${clientIp} after ${IDLE_TIMEOUT_MS / 60000}min`);
+            if (channel.writable) {
+              channel.write('\r\n\r\n\x1b[2m-- idle timeout, goodbye --\x1b[0m\r\n');
+              channel.write('\x1b[?1049l\x1b[?25h');
+            }
+            channel.end();
+          }, IDLE_TIMEOUT_MS);
+        };
+        resetIdleTimer();
+
         // Ink handles alternate screen via alternateScreen option
 
         // Create writable stream that pipes to the SSH channel
@@ -147,8 +163,9 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
           unref() { return this; },
         }) as any;
 
-        // Forward SSH channel data to stdin
+        // Forward SSH channel data to stdin, reset idle timer on any input
         channel.on('data', (data: Buffer) => {
+          resetIdleTimer();
           stdin.write(data);
         });
 
@@ -187,6 +204,7 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
         }
 
         channel.on('close', () => {
+          if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
           if (inkInstance) {
             try { inkInstance.unmount(); } catch {}
             inkInstance = null;
