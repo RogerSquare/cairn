@@ -46,17 +46,17 @@
       "LiveDemo": ""
     },
     {
-      "Name": "Agent Task Board",
+      "Name": "Atrium",
       "Description": "Kanban-style task management system for autonomous AI developer agents with real-time sync, embedded terminals, and service management.",
       "Technologies": ["React", "Node.js", "Express", "Socket.IO"],
-      "Link": "github.com/RogerSquare/agent-task-board",
+      "Link": "github.com/RogerSquare/atrium",
       "LiveDemo": ""
     },
     {
-      "Name": "Terminal UI Showcase",
+      "Name": "Kaleidoscope",
       "Description": "30 interactive terminal UI demos exploring animations, components, and interaction patterns.",
       "Technologies": ["TypeScript", "React", "Ink"],
-      "Link": "github.com/RogerSquare/terminal-ui-showcase",
+      "Link": "github.com/RogerSquare/kaleidoscope",
       "LiveDemo": ""
     },
     {
@@ -95,10 +95,10 @@
       "LiveDemo": ""
     },
     {
-      "Name": "Terminal Portfolio",
+      "Name": "Cairn",
       "Description": "SSH-accessible terminal portfolio built with Go and the Charm Bracelet ecosystem.",
       "Technologies": ["Go", "Bubble Tea", "Lip Gloss"],
-      "Link": "github.com/RogerSquare/portfolio",
+      "Link": "github.com/RogerSquare/cairn",
       "LiveDemo": ""
     }
   ],

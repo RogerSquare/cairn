@@ -1,4 +1,6 @@
-# Terminal Portfolio
+# Cairn
+
+*(formerly Terminal Portfolio)*
 
 An interactive, SSH-accessible terminal portfolio built with Go and the Charm Bracelet ecosystem. It renders a full TUI (terminal user interface) with multiple navigable views, styled layouts, and keyboard-driven navigation. Connect via SSH or run the binary directly to browse through About, Skills, Projects, Experience, Education, and Contact sections.
 
@@ -44,11 +46,11 @@ Model (state) --> View (render) --> Update (handle input) --> Model
 ### Build and Run
 
 ```bash
-git clone https://github.com/RogerSquare/portfolio.git
-cd portfolio
+git clone https://github.com/RogerSquare/cairn.git
+cd cairn
 go mod download
-go build -o portfolio
-./portfolio
+go build -o cairn
+./cairn
 ```
 
 The SSH server starts on port 2222. Connect from another terminal:
