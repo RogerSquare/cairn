@@ -70,6 +70,9 @@ function layout(title: string, nav: string, content: string, showHero = false, m
   <meta name="twitter:description" content="${desc}">
   <link rel="canonical" href="${url}">
   ${showHero ? `<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"${esc(contact.name)}","jobTitle":"${esc(contact.title)}","url":"https://r-that.com","email":"${esc(contact.email)}","address":{"@type":"PostalAddress","addressLocality":"${esc(contact.location)}"},"sameAs":["https://${esc(contact.github)}","https://${esc(contact.website)}"]}</script>` : ''}
+  <script>
+    (function(){var t=localStorage.getItem('theme');if(t==='light'||(t!=='dark'&&window.matchMedia('(prefers-color-scheme:light)').matches)){document.documentElement.classList.add('light')}})();
+  </script>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -85,6 +88,14 @@ function layout(title: string, nav: string, content: string, showHero = false, m
       --border: rgba(136, 136, 136, 0.15);
       --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: 'DM Mono', 'Fira Code', monospace;
+    }
+    html.light {
+      --bg: #fafafa;
+      --text: #444;
+      --text-strong: #222;
+      --text-deep: #111;
+      --text-muted: #777;
+      --border: rgba(0, 0, 0, 0.1);
     }
     html { scroll-behavior: smooth; }
     .skip-link { position: absolute; top: -100px; left: 16px; background: var(--accent); color: #000; padding: 8px 16px; border-radius: 4px; z-index: 9999; font-size: 14px; text-decoration: none; }
@@ -111,9 +122,9 @@ function layout(title: string, nav: string, content: string, showHero = false, m
       height: 100%;
     }
     ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #111; }
-    ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: #555; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     main {
       position: relative;
       z-index: 1;
@@ -122,7 +133,7 @@ function layout(title: string, nav: string, content: string, showHero = false, m
       padding: 0 24px;
     }
     a { color: var(--text-strong); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.2s, opacity 0.2s; }
-    a:hover { border-bottom-color: rgba(255,255,255,0.3); }
+    a:hover { border-bottom-color: var(--border); }
     @keyframes slide-enter {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -214,12 +225,12 @@ function layout(title: string, nav: string, content: string, showHero = false, m
     .prose p { margin: 1.2em 0; font-size: 0.95rem; line-height: 1.8; }
     .prose ul, .prose ol { padding-left: 20px; margin: 1em 0; }
     .prose li { font-size: 0.9rem; line-height: 1.7; margin-bottom: 4px; color: var(--text); }
-    .prose code { font-family: var(--mono); font-size: 0.88em; background: #0e0e0e; padding: 2px 6px; border-radius: 3px; color: var(--text-strong); }
-    .prose pre { background: #0e0e0e; padding: 16px; border-radius: 6px; overflow-x: auto; margin: 1.5em 0; }
+    .prose code { font-family: var(--mono); font-size: 0.88em; background: color-mix(in srgb, var(--text-muted) 10%, var(--bg)); padding: 2px 6px; border-radius: 3px; color: var(--text-strong); }
+    .prose pre { background: color-mix(in srgb, var(--text-muted) 10%, var(--bg)); padding: 16px; border-radius: 6px; overflow-x: auto; margin: 1.5em 0; }
     .prose pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.6; }
     .prose blockquote { border-left: 3px solid var(--border); padding: 0.5em 1em; margin: 1.2em 0; opacity: 0.7; font-style: italic; }
-    .prose a { border-bottom-color: rgba(255,255,255,0.2); }
-    .prose a:hover { border-bottom-color: rgba(255,255,255,0.5); }
+    .prose a { border-bottom-color: var(--border); }
+    .prose a:hover { border-bottom-color: var(--text-muted); }
     .prose img { max-width: 100%; border-radius: 6px; margin: 1.5em 0; }
     .prose hr { width: 50px; margin: 2em auto; }
     /* Gallery */
@@ -241,6 +252,20 @@ function layout(title: string, nav: string, content: string, showHero = false, m
     .lightbox-close { position: fixed; top: 12px; right: 16px; font-size: 28px; color: rgba(255,255,255,0.3); cursor: pointer; z-index: 1001; border: none; background: none; transition: color 0.2s; }
     .lightbox-close:hover { color: rgba(255,255,255,0.8); }
     .lightbox-counter { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 13px; color: rgba(255,255,255,0.4); font-family: var(--mono); z-index: 1001; }
+    html, body, main, nav, nav a, a, .name, .title, .location, h2, .about, .skill-list, .project-link, .project-desc, .project-tech, .exp-role, .exp-meta, .exp-desc li, .contact-item, .prose p, .prose li, .prose code, .prose pre, .prose blockquote, .post-title, .post-meta, .post-excerpt, footer {
+      transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+    }
+    .theme-toggle { background: none; border: 1px solid var(--border); border-radius: 50%; width: 32px; height: 32px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; opacity: 0.4; transition: opacity 0.2s, background 0.2s; color: var(--text); padding: 0; }
+    .theme-toggle:hover { opacity: 0.9; background: color-mix(in srgb, var(--text-muted) 10%, var(--bg)); }
+    .theme-toggle svg { width: 16px; height: 16px; }
+    html.light .theme-toggle .icon-moon { display: none; }
+    html:not(.light) .theme-toggle .icon-sun { display: none; }
+    html.light .lightbox { background: rgba(255,255,255,0.95); }
+    html.light .lightbox-nav, html.light .lightbox-close { color: rgba(0,0,0,0.3); }
+    html.light .lightbox-nav:hover, html.light .lightbox-close:hover { color: rgba(0,0,0,0.8); }
+    html.light .lightbox-counter { color: rgba(0,0,0,0.4); }
+    html.light .to-top:hover { background: rgba(0,0,0,0.05); }
+    html.light .bg-canvas-wrap { opacity: 0.15; }
     @media (max-width: 640px) {
       main { padding: 0 20px; }
       .header-top { padding: 20px 0; }
@@ -474,7 +499,9 @@ function navLinks(active: string): string {
   const left = textLinks.map(l => `<a href="${l.href}"${l.label.toLowerCase() === active ? ' class="active"' : ''}>${l.label}</a>`).join('');
   const right = iconLinks.map(l => `<a href="${l.href}" class="nav-icon" title="${l.label}">${l.icon}</a>`).join('');
 
-  return left + '<span class="nav-spacer"></span>' + right;
+  const themeToggle = `<button class="theme-toggle" title="Toggle theme" onclick="(function(){var h=document.documentElement,l=h.classList.toggle('light');localStorage.setItem('theme',l?'light':'dark')})()"><svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg><svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>`;
+
+  return left + '<span class="nav-spacer"></span>' + right + themeToggle;
 }
 
 // ---- ROBOTS.TXT ----
@@ -882,10 +909,12 @@ function adminLayout(title: string, body: string): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
+  <script>(function(){var t=localStorage.getItem('theme');if(t==='light'||(t!=='dark'&&window.matchMedia('(prefers-color-scheme:light)').matches)){document.documentElement.classList.add('light')}})()</script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root { --bg: #050505; --surface: #0e0e0e; --border: rgba(136,136,136,0.15); --text: #bbb; --text-strong: #ddd; --text-muted: #888; --accent: #fdb32a; --mono: 'DM Mono','Fira Code',monospace; --font: 'Inter',sans-serif; }
+    html.light { --bg: #fafafa; --surface: #f0f0f0; --border: rgba(0,0,0,0.1); --text: #444; --text-strong: #222; --text-muted: #777; --accent: #d4940d; }
     body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; }
     .admin { max-width: 740px; margin: 0 auto; padding: 32px 24px; }
     h1 { font-size: 1.3rem; color: var(--text-strong); margin-bottom: 24px; font-weight: 600; }
@@ -894,7 +923,7 @@ function adminLayout(title: string, body: string): string {
     a:hover { opacity: 0.8; }
     .btn { padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); transition: all 0.15s; font-family: var(--font); }
     .btn:hover { border-color: var(--accent); color: var(--accent); }
-    .btn-primary { background: var(--accent); color: #050505; border-color: var(--accent); }
+    .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
     .btn-primary:hover { opacity: 0.9; }
     .btn-danger { color: #f85149; }
     .btn-danger:hover { border-color: #f85149; background: rgba(248,81,73,0.1); }
