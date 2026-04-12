@@ -24,8 +24,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.SSH_PORT || '2222', 10);
 const HOST_KEY_PATH = join(__dirname, '..', 'host_key');
 const MAX_CONNECTIONS = 20;
+const MAX_PER_IP = 3;
 
 let activeConnections = 0;
+const perIpConnections = new Map<string, number>();
 
 // Generate or load host key using ssh-keygen for OpenSSH format
 function getHostKey(): string {
@@ -44,15 +46,27 @@ const hostKey = getHostKey();
 
 const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
   const clientIp = (client as any)._sock?.remoteAddress || 'unknown';
-  activeConnections++;
-  console.log(`[${new Date().toISOString()}] Client connected: ${clientIp} (${activeConnections}/${MAX_CONNECTIONS})`);
+  let accepted = false;
 
-  if (activeConnections > MAX_CONNECTIONS) {
-    console.log(`[${new Date().toISOString()}] Rejecting connection: max connections reached`);
+  // Per-IP connection limit (DoS prevention)
+  const ipCount = perIpConnections.get(clientIp) || 0;
+  if (ipCount >= MAX_PER_IP) {
+    console.log(`[${new Date().toISOString()}] Rejecting connection from ${clientIp}: per-IP limit reached (${ipCount}/${MAX_PER_IP})`);
     client.end();
-    activeConnections--;
     return;
   }
+
+  // Global connection limit
+  if (activeConnections >= MAX_CONNECTIONS) {
+    console.log(`[${new Date().toISOString()}] Rejecting connection from ${clientIp}: max connections reached`);
+    client.end();
+    return;
+  }
+
+  accepted = true;
+  activeConnections++;
+  perIpConnections.set(clientIp, ipCount + 1);
+  console.log(`[${new Date().toISOString()}] Client connected: ${clientIp} (${activeConnections}/${MAX_CONNECTIONS}, ${ipCount + 1}/${MAX_PER_IP} from this IP)`);
 
   client.on('authentication', (ctx: any) => {
     // Accept all authentication -- this is a public portfolio
@@ -183,7 +197,11 @@ const server = new Server({ hostKeys: [hostKey] }, (client: any) => {
   });
 
   client.on('close', () => {
+    if (!accepted) return;
     activeConnections--;
+    const remaining = (perIpConnections.get(clientIp) || 1) - 1;
+    if (remaining <= 0) perIpConnections.delete(clientIp);
+    else perIpConnections.set(clientIp, remaining);
     console.log(`[${new Date().toISOString()}] Client disconnected: ${clientIp} (${activeConnections}/${MAX_CONNECTIONS})`);
   });
 
