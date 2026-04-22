@@ -3,7 +3,12 @@
 
 import express from 'express';
 import compression from 'compression';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getContact, getAbout, getSkills, getProjects, getExperience, getData, saveData, DATA_PATH } from './data.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 const app = express();
 const PORT = parseInt(process.env.WEB_PORT || '3000', 10);
@@ -15,6 +20,7 @@ const PHOTO_CACHE_TTL = 10 * 60 * 1000; // 10 min
 
 app.use(express.urlencoded({ extended: true }));
 app.use(compression());
+app.use('/static', express.static(PUBLIC_DIR, { maxAge: '1d', fallthrough: true }));
 
 // Security headers
 app.use((_req, res, next) => {
@@ -72,6 +78,7 @@ function layout(title: string, nav: string, content: string, showHero = false, m
   ${showHero ? `<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"${esc(contact.name)}","jobTitle":"${esc(contact.title)}","url":"https://r-that.com","email":"${esc(contact.email)}","address":{"@type":"PostalAddress","addressLocality":"${esc(contact.location)}"},"sameAs":["https://${esc(contact.github)}","https://${esc(contact.website)}"]}</script>` : ''}
   <script>
     (function(){var t=localStorage.getItem('theme');if(t==='light'||(t!=='dark'&&window.matchMedia('(prefers-color-scheme:light)').matches)){document.documentElement.classList.add('light')}})();
+    window._lightEgg=function(l){if(!l||matchMedia('(prefers-reduced-motion:reduce)').matches)return;var i=document.createElement('img');i.src='/static/my-eyes.webp';i.className='meme-overlay';i.alt='';i.setAttribute('aria-hidden','true');i.onerror=function(){i.remove()};document.body.appendChild(i);setTimeout(function(){i.remove()},2800)};
   </script>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -262,6 +269,7 @@ function layout(title: string, nav: string, content: string, showHero = false, m
     .theme-toggle svg { width: 18px; height: 18px; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     html.light .theme-toggle .icon-moon { display: none; }
     html:not(.light) .theme-toggle .icon-sun { display: none; }
+    .meme-overlay { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: min(480px, 80vw); max-height: 80vh; z-index: 9999; pointer-events: none; }
     html.light .lightbox { background: rgba(255,255,255,0.95); }
     html.light .lightbox-nav, html.light .lightbox-close { color: rgba(0,0,0,0.3); }
     html.light .lightbox-nav:hover, html.light .lightbox-close:hover { color: rgba(0,0,0,0.8); }
@@ -514,7 +522,7 @@ function navLinks(active: string): string {
   }).join('');
   const right = iconLinks.map(l => `<a href="${l.href}" class="nav-icon" title="${l.label}">${l.icon}</a>`).join('');
 
-  const themeToggle = `<button class="theme-toggle" title="Toggle theme" onclick="(function(){var h=document.documentElement,l=h.classList.toggle('light');localStorage.setItem('theme',l?'light':'dark');if(window._restartBg)window._restartBg()})()"><svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg><svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>`;
+  const themeToggle = `<button class="theme-toggle" title="Toggle theme" onclick="(function(){var h=document.documentElement,l=h.classList.toggle('light');localStorage.setItem('theme',l?'light':'dark');if(window._restartBg)window._restartBg();if(window._lightEgg)window._lightEgg(l)})()"><svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg><svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>`;
 
   return left + '<span class="nav-spacer"></span>' + right + themeToggle;
 }
@@ -666,15 +674,13 @@ app.get('/experience', (_req, res) => {
 
 // ---- BLOG ----
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, unlinkSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import matter from 'gray-matter';
 import { marked } from 'marked';
 
 // Disable raw HTML in markdown to prevent XSS
 marked.use({ renderer: { html: () => '', } });
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TS_DIR = join(__dirname, '..');
 const DATA_DIR = process.env.CAIRN_DATA_DIR || REPO_TS_DIR;
 const POSTS_DIR = join(DATA_DIR, 'posts');
