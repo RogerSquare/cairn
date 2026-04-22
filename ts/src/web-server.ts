@@ -78,7 +78,7 @@ function layout(title: string, nav: string, content: string, showHero = false, m
   ${showHero ? `<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"${esc(contact.name)}","jobTitle":"${esc(contact.title)}","url":"https://r-that.com","email":"${esc(contact.email)}","address":{"@type":"PostalAddress","addressLocality":"${esc(contact.location)}"},"sameAs":["https://${esc(contact.github)}","https://${esc(contact.website)}"]}</script>` : ''}
   <script>
     (function(){var t=localStorage.getItem('theme');if(t==='light'||(t!=='dark'&&window.matchMedia('(prefers-color-scheme:light)').matches)){document.documentElement.classList.add('light')}})();
-    window._lightEgg=function(l){if(!l||matchMedia('(prefers-reduced-motion:reduce)').matches)return;var v=document.createElement('video');v.src='/static/my-eyes.mp4';v.className='meme-overlay';v.muted=true;v.autoplay=true;v.playsInline=true;v.setAttribute('aria-hidden','true');v.onerror=function(){v.remove()};v.onended=function(){v.remove()};document.body.appendChild(v);setTimeout(function(){v.remove()},2500)};
+    window._lightEgg=function(l){if(!l||matchMedia('(prefers-reduced-motion:reduce)').matches)return;var v=document.createElement('video');v.src='/static/my-eyes.mp4';v.className='meme-overlay';v.muted=true;v.autoplay=true;v.playsInline=true;v.setAttribute('aria-hidden','true');v.onerror=function(){v.remove()};v.onended=function(){v.remove()};document.body.appendChild(v);setTimeout(function(){v.remove()},1500)};
   </script>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
